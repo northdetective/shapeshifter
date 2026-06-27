@@ -21,7 +21,7 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            width: 360px; /* Slightly wider to accommodate bigger buttons */
+            width: 360px;
         }
         
         .panel-title {
@@ -35,7 +35,7 @@
         .panel-section { margin-bottom: 15px; }
         .panel-heading { font-weight: bold; margin-bottom: 8px; display: block; font-size: 16px; }
         
-        /* Search Bar (Kept standard size as requested) */
+        /* Search Bar */
         .search-container { display: flex; gap: 5px; }
         #search-input {
             flex-grow: 1;
@@ -45,16 +45,16 @@
             font-size: 14px; 
         }
         
-        /* Buttons - Scaled Up Further */
+        /* Buttons */
         button {
-            padding: 12px 18px; /* Increased padding */
+            padding: 12px 18px;
             background: #2a75d3;
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 17px; /* Increased text size */
+            font-size: 17px;
             transition: background 0.2s;
         }
         button:hover { background: #1b5baf; }
@@ -100,7 +100,7 @@
         /* Individual Shape Controls */
         .shape-controls {
             display: flex;
-            flex-wrap: wrap; /* Allows buttons to stack neatly */
+            flex-wrap: wrap;
             gap: 6px;
             margin-bottom: 6px;
         }
@@ -110,20 +110,24 @@
         }
         
         .shape-controls button, .export-controls button {
-            flex: 1 1 48%; /* Allows buttons to sit side-by-side */
             padding: 10px;
             font-size: 14px;
         }
-        .btn-teleport { background: #008f51; flex: 1 1 100% !important; } /* Full width for main teleport */
+        
+        /* Button Sizing & Coloring */
+        .btn-teleport { background: #008f51; flex: 1 1 100% !important; }
         .btn-teleport:hover { background: #006b3c; }
         
-        .btn-initial { background: #b05c00; }
+        .btn-initial { background: #b05c00; flex: 1 1 100% !important; }
         .btn-initial:hover { background: #8a4800; }
         
-        .btn-duplicate { background: #6b3e99; }
+        .btn-duplicate { background: #6b3e99; flex: 1 1 45% !important; }
         .btn-duplicate:hover { background: #522d7a; }
         
-        .export-controls button { background: #444; }
+        .btn-delete { background: #c70000; flex: 1 1 45% !important; }
+        .btn-delete:hover { background: #940000; }
+        
+        .export-controls button { background: #444; flex: 1; }
         .export-controls button:hover { background: #222; }
 
         /* Make Geoman Toolbar Larger */
@@ -212,13 +216,9 @@
             const nameInput = document.getElementById('shape-name').value.trim();
             const shapeName = nameInput !== '' ? nameInput : `Shape ${savedShapesData.length + 1}`;
             
-            // Extract the GeoJSON from the currently active drawings
             const geojsonData = activeDrawnLayers.toGeoJSON();
-
-            // Clear the temporary active drawings from the map
             activeDrawnLayers.clearLayers();
 
-            // Re-add the feature as a permanent, distinct group
             const permanentGroup = L.geoJSON(geojsonData, {
                 style: {
                     color: '#ff2a00',
@@ -227,12 +227,11 @@
                 }
             }).addTo(map);
 
-            // Save to application memory (including a snapshot of the original geometry)
             savedShapesData.push({
                 id: Date.now(),
                 name: shapeName,
                 layerGroup: permanentGroup,
-                originalGeoJson: JSON.parse(JSON.stringify(geojsonData)) // Deep copy of the initial state
+                originalGeoJson: JSON.parse(JSON.stringify(geojsonData)) 
             });
 
             document.getElementById('shape-name').value = '';
@@ -254,6 +253,7 @@
                         <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport shape to current view</button>
                         <button class="btn-initial" onclick="teleportToInitial(${shape.id})">Teleport to initial location</button>
                         <button class="btn-duplicate" onclick="duplicateShape(${shape.id})">Duplicate feature</button>
+                        <button class="btn-delete" onclick="deleteShape(${shape.id})">Delete feature</button>
                     </div>
                     <div class="export-controls">
                         <button onclick="exportData(${shape.id}, 'geojson')">Export GeoJSON</button>
@@ -295,10 +295,8 @@
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape || !shape.layerGroup || !shape.originalGeoJson) return;
 
-            // Remove the mutated layer from the map
             map.removeLayer(shape.layerGroup);
 
-            // Reconstruct the layer purely from the original saved GeoJSON snapshot
             shape.layerGroup = L.geoJSON(shape.originalGeoJson, {
                 style: {
                     color: '#ff2a00',
@@ -307,7 +305,6 @@
                 }
             }).addTo(map);
 
-            // Pan the camera back to where it was initially traced
             map.fitBounds(shape.layerGroup.getBounds(), { padding: [50, 50] });
         };
 
@@ -316,11 +313,9 @@
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape || !shape.layerGroup) return;
 
-            // Extract the geometry of its current state (wherever it currently is)
             const currentGeoJson = shape.layerGroup.toGeoJSON();
             const newName = shape.name + ' (Copy)';
 
-            // Render the clone on top of the map
             const newGroup = L.geoJSON(currentGeoJson, {
                 style: {
                     color: '#ff2a00',
@@ -329,7 +324,6 @@
                 }
             }).addTo(map);
 
-            // Save the clone to memory, treating its creation point as its "initial" location
             savedShapesData.push({
                 id: Date.now(),
                 name: newName,
@@ -340,7 +334,24 @@
             renderSavedList();
         };
 
-        // 9. Export Logic 
+        // 9. Delete Feature Logic
+        window.deleteShape = function(id) {
+            if (!confirm("Are you sure you want to delete this feature?")) return;
+
+            const shapeIndex = savedShapesData.findIndex(s => s.id === id);
+            if (shapeIndex === -1) return;
+
+            // Remove the shape from the map
+            map.removeLayer(savedShapesData[shapeIndex].layerGroup);
+            
+            // Remove the shape from application memory
+            savedShapesData.splice(shapeIndex, 1);
+            
+            // Re-render the UI
+            renderSavedList();
+        };
+
+        // 10. Export Logic 
         window.exportData = function(id, format) {
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape) return;
@@ -376,7 +387,7 @@
             URL.revokeObjectURL(url);
         };
 
-        // 10. Free Place Search Logic
+        // 11. Free Place Search Logic
         function performSearch() {
             const query = document.getElementById('search-input').value;
             if (!query) return;
