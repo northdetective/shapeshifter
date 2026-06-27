@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>northdetective's Shapeshifter</title>
+    <title>northdetective's shapeshifter</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css" />
@@ -100,6 +100,7 @@
         /* Individual Shape Controls */
         .shape-controls {
             display: flex;
+            flex-wrap: wrap; /* Allows buttons to stack neatly */
             gap: 6px;
             margin-bottom: 6px;
         }
@@ -109,12 +110,18 @@
         }
         
         .shape-controls button, .export-controls button {
-            flex: 1;
+            flex: 1 1 48%; /* Allows buttons to sit side-by-side */
             padding: 10px;
             font-size: 14px;
         }
-        .btn-teleport { background: #008f51; }
+        .btn-teleport { background: #008f51; flex: 1 1 100% !important; } /* Full width for main teleport */
         .btn-teleport:hover { background: #006b3c; }
+        
+        .btn-initial { background: #b05c00; }
+        .btn-initial:hover { background: #8a4800; }
+        
+        .btn-duplicate { background: #6b3e99; }
+        .btn-duplicate:hover { background: #522d7a; }
         
         .export-controls button { background: #444; }
         .export-controls button:hover { background: #222; }
@@ -131,7 +138,7 @@
 <body>
 
     <div id="control-panel">
-        <div class="panel-title">northdetective's Shapeshifter</div>
+        <div class="panel-title">Shapeshifter</div>
         
         <div class="panel-section">
             <span class="panel-heading">Find a location</span>
@@ -150,7 +157,7 @@
         </div>
 
         <div id="saved-list">
-            </div>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -220,11 +227,12 @@
                 }
             }).addTo(map);
 
-            // Save to application memory
+            // Save to application memory (including a snapshot of the original geometry)
             savedShapesData.push({
                 id: Date.now(),
                 name: shapeName,
-                layerGroup: permanentGroup
+                layerGroup: permanentGroup,
+                originalGeoJson: JSON.parse(JSON.stringify(geojsonData)) // Deep copy of the initial state
             });
 
             document.getElementById('shape-name').value = '';
@@ -244,6 +252,8 @@
                     <div class="saved-item-header">${shape.name}</div>
                     <div class="shape-controls">
                         <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport shape to current view</button>
+                        <button class="btn-initial" onclick="teleportToInitial(${shape.id})">Teleport to initial location</button>
+                        <button class="btn-duplicate" onclick="duplicateShape(${shape.id})">Duplicate feature</button>
                     </div>
                     <div class="export-controls">
                         <button onclick="exportData(${shape.id}, 'geojson')">Export GeoJSON</button>
@@ -280,14 +290,62 @@
             });
         };
 
-        // 7. Export Logic (Freshly queries the map to ensure edits/teleports are saved)
+        // 7. Teleport to Initial Location Logic
+        window.teleportToInitial = function(id) {
+            const shape = savedShapesData.find(s => s.id === id);
+            if (!shape || !shape.layerGroup || !shape.originalGeoJson) return;
+
+            // Remove the mutated layer from the map
+            map.removeLayer(shape.layerGroup);
+
+            // Reconstruct the layer purely from the original saved GeoJSON snapshot
+            shape.layerGroup = L.geoJSON(shape.originalGeoJson, {
+                style: {
+                    color: '#ff2a00',
+                    weight: 4,
+                    opacity: 1
+                }
+            }).addTo(map);
+
+            // Pan the camera back to where it was initially traced
+            map.fitBounds(shape.layerGroup.getBounds(), { padding: [50, 50] });
+        };
+
+        // 8. Duplicate Feature Logic
+        window.duplicateShape = function(id) {
+            const shape = savedShapesData.find(s => s.id === id);
+            if (!shape || !shape.layerGroup) return;
+
+            // Extract the geometry of its current state (wherever it currently is)
+            const currentGeoJson = shape.layerGroup.toGeoJSON();
+            const newName = shape.name + ' (Copy)';
+
+            // Render the clone on top of the map
+            const newGroup = L.geoJSON(currentGeoJson, {
+                style: {
+                    color: '#ff2a00',
+                    weight: 4,
+                    opacity: 1
+                }
+            }).addTo(map);
+
+            // Save the clone to memory, treating its creation point as its "initial" location
+            savedShapesData.push({
+                id: Date.now(),
+                name: newName,
+                layerGroup: newGroup,
+                originalGeoJson: JSON.parse(JSON.stringify(currentGeoJson))
+            });
+
+            renderSavedList();
+        };
+
+        // 9. Export Logic 
         window.exportData = function(id, format) {
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape) return;
 
-            // Generate fresh GeoJSON to capture any recent dragging or teleporting
             const latestGeoJson = shape.layerGroup.toGeoJSON();
-
             let fileContent = '';
             let mimeType = '';
             let fileExtension = '';
@@ -318,7 +376,7 @@
             URL.revokeObjectURL(url);
         };
 
-        // 8. Free Place Search Logic
+        // 10. Free Place Search Logic
         function performSearch() {
             const query = document.getElementById('search-input').value;
             if (!query) return;
