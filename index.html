@@ -134,9 +134,9 @@
         <div class="panel-title">northdetective's Shapeshifter</div>
         
         <div class="panel-section">
-            <span class="panel-heading">Find a Location</span>
+            <span class="panel-heading">Find a location</span>
             <div class="search-container">
-                <input type="text" id="search-input" placeholder="e.g., Cedar Point, Ohio" />
+                <input type="text" id="search-input" placeholder="e.g. Cedar Point, Ohio" />
                 <button id="search-btn">Go</button>
             </div>
         </div>
@@ -144,9 +144,9 @@
         <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
         
         <div class="panel-section">
-            <span class="panel-heading">Active Workspace</span>
+            <span class="panel-heading">Current shapes</span>
             <input type="text" id="shape-name" placeholder="Name your shape..." />
-            <button id="save-shape-btn" class="btn-full btn-action">Finish Feature</button>
+            <button id="save-shape-btn" class="btn-full btn-action">Finish feature</button>
         </div>
 
         <div id="saved-list">
@@ -243,7 +243,7 @@
                 itemDiv.innerHTML = `
                     <div class="saved-item-header">${shape.name}</div>
                     <div class="shape-controls">
-                        <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport Here</button>
+                        <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport shape to current view</button>
                     </div>
                     <div class="export-controls">
                         <button onclick="exportData(${shape.id}, 'geojson')">Export GeoJSON</button>
