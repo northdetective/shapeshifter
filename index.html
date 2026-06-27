@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Shapeshifter</title>
+    <title>northdetective's Shapeshifter</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css" />
@@ -11,7 +11,7 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #000; }
         #map { height: 100vh; width: 100vw; }
         
-        /* Control Panel Styles - Scaled Up */
+        /* Control Panel Styles */
         #control-panel {
             position: absolute;
             top: 15px;
@@ -21,7 +21,7 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            width: 340px;
+            width: 360px; /* Slightly wider to accommodate bigger buttons */
         }
         
         .panel-title {
@@ -39,33 +39,34 @@
         .search-container { display: flex; gap: 5px; }
         #search-input {
             flex-grow: 1;
-            padding: 6px;
+            padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 13px; 
+            font-size: 14px; 
         }
         
-        /* Buttons - Scaled Up */
+        /* Buttons - Scaled Up Further */
         button {
-            padding: 10px 16px;
+            padding: 12px 18px; /* Increased padding */
             background: #2a75d3;
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
-            font-size: 16px;
+            font-size: 17px; /* Increased text size */
             transition: background 0.2s;
         }
         button:hover { background: #1b5baf; }
+        
         .btn-action { background: #ff2a00; }
         .btn-action:hover { background: #cc2200; }
-        .btn-full { width: 100%; padding: 12px; margin-top: 5px; }
+        .btn-full { width: 100%; padding: 14px; margin-top: 5px; font-size: 18px; }
         
         /* Save Form Styles */
         #shape-name {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             font-size: 16px;
             box-sizing: border-box;
             margin-bottom: 10px;
@@ -75,36 +76,47 @@
 
         /* Saved Shapes List */
         #saved-list {
-            max-height: 200px;
+            max-height: 250px;
             overflow-y: auto;
-            margin-top: 10px;
+            margin-top: 15px;
             border-top: 2px solid #eee;
-            padding-top: 10px;
+            padding-top: 15px;
         }
         .saved-item {
             display: flex;
             flex-direction: column;
             background: #f4f4f4;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             border: 1px solid #ddd;
         }
         .saved-item-header {
             font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 8px;
+            font-size: 17px;
+            margin-bottom: 10px;
+        }
+        
+        /* Individual Shape Controls */
+        .shape-controls {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
         }
         .export-controls {
             display: flex;
-            gap: 5px;
+            gap: 6px;
         }
-        .export-controls button {
+        
+        .shape-controls button, .export-controls button {
             flex: 1;
-            padding: 8px;
-            font-size: 13px;
-            background: #444;
+            padding: 10px;
+            font-size: 14px;
         }
+        .btn-teleport { background: #008f51; }
+        .btn-teleport:hover { background: #006b3c; }
+        
+        .export-controls button { background: #444; }
         .export-controls button:hover { background: #222; }
 
         /* Make Geoman Toolbar Larger */
@@ -132,9 +144,9 @@
         <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
         
         <div class="panel-section">
-            <span class="panel-heading">Save Active Shapes</span>
+            <span class="panel-heading">Active Workspace</span>
             <input type="text" id="shape-name" placeholder="Name your shape..." />
-            <button id="save-shape-btn" class="btn-full btn-action">Save to Application</button>
+            <button id="save-shape-btn" class="btn-full btn-action">Finish Feature</button>
         </div>
 
         <div id="saved-list">
@@ -148,66 +160,78 @@
     <script src="https://unpkg.com/togpx@1.1.0/togpx.js"></script>
 
     <script>
-        // 1. Initialize Map with Canvas Renderer for hit tolerance
+        // 1. Initialize Map
         const canvasRenderer = L.canvas({ tolerance: 25 });
         const map = L.map('map', { renderer: canvasRenderer }).setView([33.4565, -84.4251], 16);
 
-        // 2. Add Satellite Basemap
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri',
             maxZoom: 19
         }).addTo(map);
 
-        // 3. Configure Geoman Toolbar
-        // Includes drawing, vertex editing, dragging, and rotating.
+        // 2. Configure Geoman Toolbar
         map.pm.addControls({
             position: 'topleft',
             drawMarker: false,
             drawCircleMarker: false,
-            drawPolyline: true,  // Trace objects as lines
-            drawPolygon: true,   // Trace closed objects
+            drawPolyline: true,
+            drawPolygon: true,
             drawRectangle: false,
             drawCircle: false,
             drawText: false,
-            editMode: true,      // Vertex editing
-            dragMode: true,      // Move shapes
-            rotateMode: true,    // Rotate shapes
-            removalMode: true,   // Delete shapes
+            editMode: true,
+            dragMode: true,
+            rotateMode: true,
+            removalMode: true,
             cutPolygon: false
         });
 
-        // App State for Saved Shapes
+        // 3. State Management
         let savedShapesData = [];
+        let activeDrawnLayers = L.featureGroup().addTo(map);
 
-        // 4. Save Logic
+        // Track layers as they are drawn so they don't get mixed up
+        map.on('pm:create', (e) => {
+            activeDrawnLayers.addLayer(e.layer);
+        });
+
+        // 4. "Finish Feature" Logic
         document.getElementById('save-shape-btn').addEventListener('click', function() {
-            const nameInput = document.getElementById('shape-name').value.trim();
-            const shapeName = nameInput !== '' ? nameInput : `Shape ${savedShapesData.length + 1}`;
-            
-            // Grab all features currently drawn on the map via Geoman
-            const layers = map.pm.getGeomanLayers();
-            
-            if (layers.length === 0) {
-                alert("Draw a shape on the map first using the toolbar on the left.");
+            if (activeDrawnLayers.getLayers().length === 0) {
+                alert("Please trace a shape on the map first using the toolbar.");
                 return;
             }
 
-            // Convert current layers to GeoJSON
-            const featureGroup = L.featureGroup(layers);
-            const geojsonData = featureGroup.toGeoJSON();
+            const nameInput = document.getElementById('shape-name').value.trim();
+            const shapeName = nameInput !== '' ? nameInput : `Shape ${savedShapesData.length + 1}`;
+            
+            // Extract the GeoJSON from the currently active drawings
+            const geojsonData = activeDrawnLayers.toGeoJSON();
 
-            // Store in application memory
+            // Clear the temporary active drawings from the map
+            activeDrawnLayers.clearLayers();
+
+            // Re-add the feature as a permanent, distinct group
+            const permanentGroup = L.geoJSON(geojsonData, {
+                style: {
+                    color: '#ff2a00',
+                    weight: 4,
+                    opacity: 1
+                }
+            }).addTo(map);
+
+            // Save to application memory
             savedShapesData.push({
                 id: Date.now(),
                 name: shapeName,
-                geojson: geojsonData
+                layerGroup: permanentGroup
             });
 
-            document.getElementById('shape-name').value = ''; // clear input
+            document.getElementById('shape-name').value = '';
             renderSavedList();
         });
 
-        // 5. Render Saved List & Attach Export Handlers
+        // 5. Render Saved List
         function renderSavedList() {
             const listContainer = document.getElementById('saved-list');
             listContainer.innerHTML = '';
@@ -218,41 +242,71 @@
                 
                 itemDiv.innerHTML = `
                     <div class="saved-item-header">${shape.name}</div>
+                    <div class="shape-controls">
+                        <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport Here</button>
+                    </div>
                     <div class="export-controls">
-                        <button onclick="exportData(${shape.id}, 'geojson')">GeoJSON</button>
-                        <button onclick="exportData(${shape.id}, 'gpx')">GPX</button>
+                        <button onclick="exportData(${shape.id}, 'geojson')">Export GeoJSON</button>
+                        <button onclick="exportData(${shape.id}, 'gpx')">Export GPX</button>
                     </div>
                 `;
                 listContainer.appendChild(itemDiv);
             });
         }
 
-        // 6. Export Logic (GeoJSON & GPX)
+        // 6. Individual Shape Teleport Logic
+        window.teleportShape = function(id) {
+            const shape = savedShapesData.find(s => s.id === id);
+            if (!shape || !shape.layerGroup) return;
+
+            const mapCenter = map.getCenter();
+            const layerCenter = shape.layerGroup.getBounds().getCenter();
+
+            const latDiff = mapCenter.lat - layerCenter.lat;
+            const lngDiff = mapCenter.lng - layerCenter.lng;
+
+            shape.layerGroup.eachLayer(function(layer) {
+                if (typeof layer.getLatLngs === 'function') {
+                    const shiftCoords = (coords) => {
+                        if (Array.isArray(coords[0])) return coords.map(shiftCoords);
+                        return coords.map(cl => L.latLng(cl.lat + latDiff, cl.lng + lngDiff));
+                    };
+                    layer.setLatLngs(shiftCoords(layer.getLatLngs()));
+                    layer.redraw();
+                } else if (typeof layer.getLatLng === 'function') {
+                    const latLng = layer.getLatLng();
+                    layer.setLatLng([latLng.lat + latDiff, latLng.lng + lngDiff]);
+                }
+            });
+        };
+
+        // 7. Export Logic (Freshly queries the map to ensure edits/teleports are saved)
         window.exportData = function(id, format) {
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape) return;
+
+            // Generate fresh GeoJSON to capture any recent dragging or teleporting
+            const latestGeoJson = shape.layerGroup.toGeoJSON();
 
             let fileContent = '';
             let mimeType = '';
             let fileExtension = '';
 
             if (format === 'geojson') {
-                fileContent = JSON.stringify(shape.geojson, null, 2);
+                fileContent = JSON.stringify(latestGeoJson, null, 2);
                 mimeType = 'application/geo+json';
                 fileExtension = 'geojson';
             } else if (format === 'gpx') {
-                // Use togpx library to convert GeoJSON to GPX XML
                 try {
-                    fileContent = togpx(shape.geojson);
+                    fileContent = togpx(latestGeoJson);
                     mimeType = 'application/gpx+xml';
                     fileExtension = 'gpx';
                 } catch (e) {
-                    alert("Error converting shape to GPX. Ensure it is a valid Polyline.");
+                    alert("Error converting shape to GPX. Ensure it is a valid track.");
                     return;
                 }
             }
 
-            // Create invisible anchor to trigger download
             const blob = new Blob([fileContent], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -264,7 +318,7 @@
             URL.revokeObjectURL(url);
         };
 
-        // 7. Free Place Search Logic (OSM Nominatim)
+        // 8. Free Place Search Logic
         function performSearch() {
             const query = document.getElementById('search-input').value;
             if (!query) return;
