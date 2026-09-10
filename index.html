@@ -539,7 +539,7 @@
                     <div class="saved-item-header">
                         <span>${shape.name}</span>
                         <div style="display: flex; align-items: center; gap: 4px;">
-                            <input type="color" id="color-picker-${shape.id}" class="color-picker" value="${shape.color}" title="Change shape color">
+                            <input type="color" id="color-picker-${shape.id}" class="color-picker" value="${shape.color}" oninput="changeShapeColor(${shape.id}, this.value)" onchange="changeShapeColor(${shape.id}, this.value)" title="Change shape color">
                             <button onclick="changeShapeColor(${shape.id}, document.getElementById('color-picker-${shape.id}').value)" style="padding: 2px 6px; font-size: 14px; background: #28a745; border-radius: 4px; border: none; color: white; cursor: pointer;" title="Apply color">✔️</button>
                         </div>
                     </div>
