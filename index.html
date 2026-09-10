@@ -169,8 +169,11 @@
 <body>
 
     <div id="control-panel">
-        <div class="panel-title">Shapeshifter</div>
-        
+        <div class="panel-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <span>Shapeshifter</span>
+            <button id="toggle-panel-btn" style="padding: 2px 8px; font-size: 16px; background: none; color: #333; border: 1px solid #ccc; border-radius: 4px; cursor: pointer;" title="Minimize Panel">-</button>
+        </div>
+        <div id="panel-content" style="margin-top: 15px;">
         <div class="panel-section">
             <span class="panel-heading">Find a location</span>
             <div class="search-container">
@@ -232,6 +235,7 @@
 
         <div id="saved-list">
         </div>
+        </div> <!-- End of panel-content -->
     </div>
 
     <div id="map"></div>
@@ -251,6 +255,18 @@
     <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
 
     <script>
+        // Panel Toggle Logic
+        document.getElementById('toggle-panel-btn').addEventListener('click', function() {
+            const content = document.getElementById('panel-content');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                this.innerText = '-';
+            } else {
+                content.style.display = 'none';
+                this.innerText = '+';
+            }
+        });
+
         // 1. Initialize Map
         const canvasRenderer = L.canvas({ tolerance: 25 });
         
