@@ -45,6 +45,17 @@
             font-size: 14px; 
         }
         
+        /* Dropdown */
+        #pretraced-select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 15px;
+            background: white;
+            cursor: pointer;
+        }
+
         /* Buttons */
         button {
             padding: 12px 18px;
@@ -94,9 +105,20 @@
             border: 1px solid #ddd;
         }
         .saved-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-weight: bold;
             font-size: 17px;
             margin-bottom: 10px;
+        }
+        .color-picker {
+            cursor: pointer;
+            border: none;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            background: none;
         }
         
         /* Individual Shape Controls */
@@ -157,9 +179,28 @@
         <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
         
         <div class="panel-section">
+            <span class="panel-heading">Pretraced Tracks</span>
+            <select id="pretraced-select">
+                <option value="">Select a track...</option>
+                <option value="switchback.geojson">Switchback (ZDT)</option>
+                <option value="arieforce.geojson">ArieForce One (Fun Spot Atlanta)</option>
+                <option value="Dragon_Mountain.geojson">Dragon Mountain (Marineland)</option>
+                <option value="Hell_Cat.geojson">Hell Cat (Clementon)</option>
+                <option value="WildOne.geojson">Wild One (Six Flags America)</option>
+            </select>
+        </div>
+
+        <div class="panel-section">
             <span class="panel-heading">Import shape</span>
             <input type="file" id="file-import" accept=".geojson,.json,.gpx,.kml,.kmz" style="display: none;" />
             <button id="import-btn" class="btn-full btn-import">Upload File</button>
+        </div>
+
+        <div class="panel-section">
+            <span class="panel-heading">Add Custom Tile/WMS Layer</span>
+            <input type="text" id="custom-layer-url" placeholder="URL (e.g. https://... or WMS)" style="width:100%; margin-bottom:5px; padding:8px; box-sizing:border-box; border: 1px solid #ccc; border-radius: 4px;">
+            <input type="text" id="custom-layer-name" placeholder="WMS Layer Name (if WMS)" style="width:100%; margin-bottom:5px; padding:8px; box-sizing:border-box; border: 1px solid #ccc; border-radius: 4px;">
+            <button id="add-custom-layer-btn" class="btn-full btn-import">Add Layer</button>
         </div>
 
         <div class="panel-section">
@@ -186,13 +227,71 @@
     <script>
         // 1. Initialize Map
         const canvasRenderer = L.canvas({ tolerance: 25 });
-        const map = L.map('map', { renderer: canvasRenderer }).setView([33.4565, -84.4251], 16);
-
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        
+        // Basemaps
+        const esriImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             attribution: 'Tiles &copy; Esri &mdash; Source: Esri',
             maxZoom: 19
-        }).addTo(map);
+        });
+        
+        const osmMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        });
+        
+        const usgsImageryTopo = L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'USGS The National Map (Topo)',
+            maxZoom: 16
+        });
+        
+        const usgsImageryOnly = L.tileLayer('https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'USGS The National Map (Imagery)',
+            maxZoom: 16
+        });
 
+        const map = L.map('map', { 
+            renderer: canvasRenderer,
+            layers: [esriImagery]
+        }).setView([33.4565, -84.4251], 16);
+
+        // Add Layer Control for Basemaps
+        const baseMaps = {
+            "Esri Satellite": esriImagery,
+            "USGS Imagery (No Labels)": usgsImageryOnly,
+            "USGS Imagery Topo": usgsImageryTopo,
+            "OpenStreetMap": osmMap
+        };
+        const layerControl = L.control.layers(baseMaps, null, {position: 'bottomright'}).addTo(map);
+
+        // Custom Layer Logic
+        let customLayerCount = 1;
+        document.getElementById('add-custom-layer-btn').addEventListener('click', () => {
+            const url = document.getElementById('custom-layer-url').value.trim();
+            const wmsLayer = document.getElementById('custom-layer-name').value.trim();
+            if (!url) return;
+
+            let newLayer;
+            if (wmsLayer || url.toLowerCase().includes('wms')) {
+                newLayer = L.tileLayer.wms(url, {
+                    layers: wmsLayer || '0', 
+                    format: 'image/png',
+                    transparent: true,
+                    attribution: 'Custom WMS'
+                });
+            } else {
+                newLayer = L.tileLayer(url, {
+                    attribution: 'Custom Tile Layer',
+                    maxZoom: 22
+                });
+            }
+
+            const layerName = `Custom Layer ${customLayerCount++}`;
+            layerControl.addBaseLayer(newLayer, layerName);
+            newLayer.addTo(map);
+            alert(`Added ${layerName} to map and layer controls!`);
+            document.getElementById('custom-layer-url').value = '';
+            document.getElementById('custom-layer-name').value = '';
+        });
         // 2. Configure Geoman Toolbar
         map.pm.addControls({
             position: 'topleft',
@@ -216,6 +315,38 @@
 
         map.on('pm:create', (e) => {
             activeDrawnLayers.addLayer(e.layer);
+        });
+
+        // Load Pretraced Track Logic
+        document.getElementById('pretraced-select').addEventListener('change', async function(e) {
+            const filename = e.target.value;
+            if (!filename) return;
+
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) throw new Error("Could not load " + filename);
+                const geojsonData = await response.json();
+
+                const shapeName = document.querySelector(`option[value="${filename}"]`).text;
+                const importedGroup = L.geoJSON(geojsonData, {
+                    style: { color: '#ff2a00', weight: 4, opacity: 1, fillColor: '#ff2a00' }
+                }).addTo(map);
+
+                savedShapesData.push({
+                    id: Date.now(),
+                    name: shapeName,
+                    color: '#ff2a00',
+                    layerGroup: importedGroup,
+                    originalGeoJson: JSON.parse(JSON.stringify(importedGroup.toGeoJSON()))
+                });
+
+                map.fitBounds(importedGroup.getBounds(), { padding: [50, 50] });
+                renderSavedList();
+                e.target.value = ''; // Reset dropdown
+            } catch (err) {
+                alert("Error loading track: " + err.message);
+                e.target.value = '';
+            }
         });
 
         // 4. Import Shape Logic
@@ -255,12 +386,13 @@
                 if (!geojsonData) throw new Error("Invalid geometry extraction.");
 
                 const importedGroup = L.geoJSON(geojsonData, {
-                    style: { color: '#ff2a00', weight: 4, opacity: 1 }
+                    style: { color: '#ff2a00', weight: 4, opacity: 1, fillColor: '#ff2a00' }
                 }).addTo(map);
 
                 savedShapesData.push({
                     id: Date.now(),
                     name: shapeName,
+                    color: '#ff2a00',
                     layerGroup: importedGroup,
                     originalGeoJson: JSON.parse(JSON.stringify(importedGroup.toGeoJSON()))
                 });
@@ -292,13 +424,15 @@
                 style: {
                     color: '#ff2a00',
                     weight: 4,
-                    opacity: 1
+                    opacity: 1,
+                    fillColor: '#ff2a00'
                 }
             }).addTo(map);
 
             savedShapesData.push({
                 id: Date.now(),
                 name: shapeName,
+                color: '#ff2a00',
                 layerGroup: permanentGroup,
                 originalGeoJson: JSON.parse(JSON.stringify(geojsonData)) 
             });
@@ -317,7 +451,10 @@
                 itemDiv.className = 'saved-item';
                 
                 itemDiv.innerHTML = `
-                    <div class="saved-item-header">${shape.name}</div>
+                    <div class="saved-item-header">
+                        <span>${shape.name}</span>
+                        <input type="color" class="color-picker" value="${shape.color}" onchange="changeShapeColor(${shape.id}, this.value)" title="Change shape color">
+                    </div>
                     <div class="shape-controls">
                         <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport shape to current view</button>
                         <button class="btn-initial" onclick="teleportToInitial(${shape.id})">Teleport to initial location</button>
@@ -333,6 +470,21 @@
                 listContainer.appendChild(itemDiv);
             });
         }
+
+        // Color Picker Logic
+        window.changeShapeColor = function(id, newColor) {
+            const shape = savedShapesData.find(s => s.id === id);
+            if (!shape || !shape.layerGroup) return;
+
+            shape.color = newColor;
+            
+            // Apply new style to all layers in the group
+            shape.layerGroup.eachLayer(function(layer) {
+                if (typeof layer.setStyle === 'function') {
+                    layer.setStyle({ color: newColor, fillColor: newColor });
+                }
+            });
+        };
 
         // 7. Individual Shape Teleport Logic
         window.teleportShape = function(id) {
@@ -369,9 +521,10 @@
 
             shape.layerGroup = L.geoJSON(shape.originalGeoJson, {
                 style: {
-                    color: '#ff2a00',
+                    color: shape.color,
                     weight: 4,
-                    opacity: 1
+                    opacity: 1,
+                    fillColor: shape.color
                 }
             }).addTo(map);
 
@@ -388,15 +541,17 @@
 
             const newGroup = L.geoJSON(currentGeoJson, {
                 style: {
-                    color: '#ff2a00',
+                    color: shape.color,
                     weight: 4,
-                    opacity: 1
+                    opacity: 1,
+                    fillColor: shape.color
                 }
             }).addTo(map);
 
             savedShapesData.push({
                 id: Date.now(),
                 name: newName,
+                color: shape.color,
                 layerGroup: newGroup,
                 originalGeoJson: JSON.parse(JSON.stringify(currentGeoJson))
             });
