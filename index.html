@@ -148,10 +148,13 @@
         .btn-initial { background: #b05c00; flex: 1 1 100% !important; }
         .btn-initial:hover { background: #8a4800; }
         
-        .btn-duplicate { background: #6b3e99; flex: 1 1 45% !important; }
+        .btn-duplicate { background: #6b3e99; flex: 1 1 30% !important; padding: 10px 5px !important; }
         .btn-duplicate:hover { background: #522d7a; }
+
+        .btn-rename { background: #0056b3; flex: 1 1 30% !important; padding: 10px 5px !important; }
+        .btn-rename:hover { background: #004085; }
         
-        .btn-delete { background: #c70000; flex: 1 1 45% !important; }
+        .btn-delete { background: #c70000; flex: 1 1 30% !important; padding: 10px 5px !important; }
         .btn-delete:hover { background: #940000; }
         
         .export-controls button { background: #444; flex: 1; padding: 10px 5px; }
@@ -832,8 +835,9 @@
                     <div class="shape-controls">
                         <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport shape to current view</button>
                         <button class="btn-initial" onclick="teleportToInitial(${shape.id})">Teleport to initial location</button>
-                        <button class="btn-duplicate" onclick="duplicateShape(${shape.id})">Duplicate feature</button>
-                        <button class="btn-delete" onclick="deleteShape(${shape.id})">Delete feature</button>
+                        <button class="btn-duplicate" onclick="duplicateShape(${shape.id})">Duplicate</button>
+                        <button class="btn-rename" onclick="renameShape(${shape.id})">Rename</button>
+                        <button class="btn-delete" onclick="deleteShape(${shape.id})">Delete</button>
                     </div>
                     <div class="export-controls">
                         <button onclick="exportData(${shape.id}, 'geojson')">GeoJSON</button>
@@ -915,7 +919,19 @@
             map.fitBounds(shape.layerGroup.getBounds(), { padding: [50, 50] });
         };
 
-        // 9. Duplicate Feature Logic
+        // 9. Rename Feature Logic
+        window.renameShape = function(id) {
+            const shape = savedShapesData.find(s => s.id === id);
+            if (!shape) return;
+
+            const newName = prompt("Enter new name for the shape:", shape.name);
+            if (newName && newName.trim() !== "") {
+                shape.name = newName.trim();
+                renderSavedList();
+            }
+        };
+
+        // 10. Duplicate Feature Logic
         window.duplicateShape = function(id) {
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape || !shape.layerGroup) return;
