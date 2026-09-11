@@ -759,20 +759,27 @@
             const mapCenter = map.getCenter();
             const layerCenter = shape.layerGroup.getBounds().getCenter();
 
-            const latDiff = mapCenter.lat - layerCenter.lat;
-            const lngDiff = mapCenter.lng - layerCenter.lng;
+            const cosShape = Math.cos(layerCenter.lat * Math.PI / 180);
+            const cosMap = Math.cos(mapCenter.lat * Math.PI / 180);
+            const scaleLng = cosShape / cosMap;
 
             shape.layerGroup.eachLayer(function(layer) {
                 if (typeof layer.getLatLngs === 'function') {
                     const shiftCoords = (coords) => {
                         if (Array.isArray(coords[0])) return coords.map(shiftCoords);
-                        return coords.map(cl => L.latLng(cl.lat + latDiff, cl.lng + lngDiff));
+                        return coords.map(cl => {
+                            const dLng = cl.lng - layerCenter.lng;
+                            const dLat = cl.lat - layerCenter.lat;
+                            return L.latLng(mapCenter.lat + dLat, mapCenter.lng + (dLng * scaleLng));
+                        });
                     };
                     layer.setLatLngs(shiftCoords(layer.getLatLngs()));
                     layer.redraw();
                 } else if (typeof layer.getLatLng === 'function') {
                     const latLng = layer.getLatLng();
-                    layer.setLatLng([latLng.lat + latDiff, latLng.lng + lngDiff]);
+                    const dLng = latLng.lng - layerCenter.lng;
+                    const dLat = latLng.lat - layerCenter.lat;
+                    layer.setLatLng([mapCenter.lat + dLat, mapCenter.lng + (dLng * scaleLng)]);
                 }
             });
         };
@@ -782,17 +789,20 @@
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape || !shape.layerGroup || !shape.originalGeoJson) return;
 
-            map.removeLayer(shape.layerGroup);
+            // Delete current layers
+            shape.layerGroup.clearLayers();
 
-            shape.layerGroup = L.geoJSON(shape.originalGeoJson, {
-                style: {
-                    color: shape.color,
-                    weight: 4,
-                    opacity: 1,
-                    fillColor: shape.color
-                }
-            }).addTo(map);
+            // Re-instantiate from original GeoJSON
+            const originalLayer = L.geoJSON(shape.originalGeoJson, {
+                style: { color: shape.color, weight: 4, opacity: 1, fillColor: shape.color }
+            });
 
+            // Add back to the layer group
+            originalLayer.eachLayer(layer => {
+                shape.layerGroup.addLayer(layer);
+            });
+
+            // Pan back to it
             map.fitBounds(shape.layerGroup.getBounds(), { padding: [50, 50] });
         };
 
