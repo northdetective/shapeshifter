@@ -206,6 +206,7 @@
 				<option value="Woodstock_Express.geojson">Woodstock Express (California's Great America)</option>
 				<option value="Vekoma_Boomerang.geojson">Vekoma Boomerang</option>
 				<option value="Vekoma_SLC.geojson">Vekoma SLC</option>
+				<option value="Siren's_Curse.geojson">Siren's Curse (Cedar Point)</option>
             </select>
         </div>
 
@@ -348,9 +349,35 @@
             }
 
             let newLayer;
+            
+            // Clean up the URL for WMS by removing parameters Leaflet adds automatically
+            let cleanUrl = url;
+            try {
+                const urlObj = new URL(url);
+                ['request', 'REQUEST', 'service', 'SERVICE', 'version', 'VERSION'].forEach(p => urlObj.searchParams.delete(p));
+                cleanUrl = urlObj.toString();
+            } catch (e) {}
+
             if (wmsLayer || url.toLowerCase().includes('wms')) {
-                newLayer = L.tileLayer.wms(url, {
-                    layers: wmsLayer || '0', 
+                let finalWmsLayer = wmsLayer;
+                if (!finalWmsLayer) {
+                    try {
+                        const capUrl = new URL(cleanUrl);
+                        capUrl.searchParams.set('request', 'GetCapabilities');
+                        capUrl.searchParams.set('service', 'WMS');
+                        const response = await fetch(capUrl.toString());
+                        const text = await response.text();
+                        const layerMatch = text.match(/<Layer[^>]*>[\s\S]*?<Name>([^<]+)<\/Name>/i);
+                        if (layerMatch && layerMatch[1]) {
+                            finalWmsLayer = layerMatch[1];
+                        }
+                    } catch (e) {
+                        console.warn("Could not auto-detect WMS layer name.");
+                    }
+                }
+                
+                newLayer = L.tileLayer.wms(cleanUrl, {
+                    layers: finalWmsLayer || '0', 
                     format: 'image/png',
                     transparent: true,
                     attribution: 'Custom WMS',
