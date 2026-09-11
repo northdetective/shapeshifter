@@ -321,10 +321,29 @@
 
         // Custom Layer Logic
         let customLayerCount = 1;
-        document.getElementById('add-custom-layer-btn').addEventListener('click', () => {
+        document.getElementById('add-custom-layer-btn').addEventListener('click', async () => {
             const url = document.getElementById('custom-layer-url').value.trim();
             const wmsLayer = document.getElementById('custom-layer-name').value.trim();
             if (!url) return;
+
+            let layerName = wmsLayer || '';
+            if (!layerName) {
+                const urlParts = url.replace(/\/$/, '').split('/');
+                for (let i = urlParts.length - 1; i >= 0; i--) {
+                    const p = urlParts[i].toLowerCase();
+                    if (p === 'mapserver' || p === 'imageserver') {
+                        if (i > 0) {
+                            layerName = urlParts[i - 1];
+                            // Replace underscores with spaces for readability
+                            layerName = layerName.replace(/_/g, ' ');
+                            break;
+                        }
+                    }
+                }
+                if (!layerName) {
+                    layerName = `Custom Layer ${customLayerCount++}`;
+                }
+            }
 
             let newLayer;
             if (wmsLayer || url.toLowerCase().includes('wms')) {
@@ -342,11 +361,28 @@
                     maxZoom: 24
                 });
             } else if (url.toLowerCase().includes('mapserver') && !url.includes('{z}')) {
-                newLayer = L.esri.dynamicMapLayer({
-                    url: url,
-                    opacity: 1,
-                    maxZoom: 24
-                });
+                let isCached = false;
+                try {
+                    const response = await fetch(url + '?f=json');
+                    const data = await response.json();
+                    if (data.singleFusedMapCache) isCached = true;
+                } catch (e) {
+                    console.warn("Could not determine map cache status, defaulting to dynamic.");
+                }
+                
+                if (isCached) {
+                    newLayer = L.esri.tiledMapLayer({
+                        url: url,
+                        opacity: 1,
+                        maxZoom: 24
+                    });
+                } else {
+                    newLayer = L.esri.dynamicMapLayer({
+                        url: url,
+                        opacity: 1,
+                        maxZoom: 24
+                    });
+                }
             } else {
                 newLayer = L.tileLayer(url, {
                     attribution: 'Custom Tile Layer',
@@ -355,9 +391,9 @@
                 });
             }
 
-            const layerName = `Custom Layer ${customLayerCount++}`;
             layerControl.addBaseLayer(newLayer, layerName);
             newLayer.addTo(map);
+
             alert(`Added ${layerName} to map and layer controls!`);
             document.getElementById('custom-layer-url').value = '';
             document.getElementById('custom-layer-name').value = '';
