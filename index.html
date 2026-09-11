@@ -331,8 +331,108 @@
         const map = L.map('map', { 
             renderer: canvasRenderer,
             layers: [esriImagery],
-            maxZoom: 24
+            maxZoom: 24,
+            zoomControl: true,
+            zoomSnap: 0,
+            wheelPxPerZoomLevel: 60
         }).setView([33.4565, -84.4251], 16);
+
+        // Inject smooth fractional zoom slider
+        const zoomContainer = document.querySelector('.leaflet-control-zoom');
+        if (zoomContainer) {
+            const toggleBtn = document.createElement('a');
+            toggleBtn.innerHTML = '↕';
+            toggleBtn.href = '#';
+            toggleBtn.title = 'Toggle Smooth Zoom';
+            toggleBtn.role = 'button';
+            toggleBtn.style.cursor = 'pointer';
+            toggleBtn.style.fontSize = '18px';
+            toggleBtn.style.lineHeight = '26px';
+            toggleBtn.style.textAlign = 'center';
+
+            const sliderWrapper = document.createElement('div');
+            sliderWrapper.style.height = '0px';
+            sliderWrapper.style.overflow = 'hidden';
+            sliderWrapper.style.transition = 'height 0.3s ease';
+            sliderWrapper.style.display = 'flex';
+            sliderWrapper.style.justifyContent = 'center';
+            sliderWrapper.style.backgroundColor = '#fff';
+
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.orient = 'vertical';
+            slider.min = 0;
+            slider.max = 24;
+            slider.step = 0.01;
+            slider.value = map.getZoom();
+            
+            slider.style.appearance = 'slider-vertical';
+            slider.style.width = '20px';
+            slider.style.height = '200px';
+            slider.style.margin = '4px 0';
+            slider.style.cursor = 'pointer';
+            slider.style.outline = 'none';
+
+            sliderWrapper.appendChild(slider);
+            
+            const zoomOut = document.querySelector('.leaflet-control-zoom-out');
+            zoomContainer.insertBefore(toggleBtn, zoomOut);
+            zoomContainer.insertBefore(sliderWrapper, zoomOut);
+
+            L.DomEvent.disableClickPropagation(toggleBtn);
+            L.DomEvent.disableClickPropagation(sliderWrapper);
+
+            toggleBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (sliderWrapper.style.height === '0px') {
+                    sliderWrapper.style.height = '208px';
+                    slider.value = map.getZoom(); // sync just in case
+                } else {
+                    sliderWrapper.style.height = '0px';
+                }
+            });
+
+            let isDragging = false;
+            let startZoom;
+            let startOffset;
+            let viewHalf;
+
+            slider.addEventListener('mousedown', function() {
+                isDragging = true;
+                startZoom = map.getZoom();
+                startOffset = map._getMapPanePos();
+                viewHalf = map.getSize().divideBy(2);
+                
+                // Prevent tile loading while dragging slider to avoid flickering
+                map._animatingZoom = true;
+            });
+
+            slider.addEventListener('input', function() {
+                if (!isDragging) return;
+                const targetZoom = parseFloat(this.value);
+                const scale = map.getZoomScale(targetZoom, startZoom);
+                
+                // Mathematically perfectly scale the existing mapPane without fetching any new tiles
+                const currentOffset = viewHalf.multiplyBy(1 - scale).add(startOffset.multiplyBy(scale));
+                L.DomUtil.setTransform(map._mapPane, currentOffset, scale);
+            });
+
+            window.addEventListener('mouseup', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    map._animatingZoom = false; // Re-enable tile fetching
+                    
+                    const targetZoom = parseFloat(slider.value);
+                    
+                    // Leaflet automatically clears transform when setZoom is called
+                    map.setZoom(targetZoom, { animate: false });
+                }
+            });
+
+            map.on('zoom', function() {
+                if (!isDragging) slider.value = map.getZoom();
+            });
+        }
 
         // Add Layer Control for Basemaps
         const baseMaps = {
