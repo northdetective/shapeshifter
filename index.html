@@ -259,6 +259,9 @@
             <label style="display: block; margin-top: 10px; font-size: 14px; cursor: pointer;">
                 <input type="checkbox" id="snap-toggle"> Snap drawing to start (Closed Line)
             </label>
+            <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
+                <input type="checkbox" id="teleport-shape-checkbox"> Teleport track to current view when adding
+            </label>
         </div>
 
         <div id="saved-list">
@@ -508,6 +511,39 @@
             activeDrawnLayers.addLayer(e.layer);
         });
 
+        // Helper to translate GeoJSON coordinates
+        function translateGeoJSON(geojsonData, latOffset, lngOffset) {
+            if (geojsonData.type === 'FeatureCollection') {
+                geojsonData.features.forEach(f => translateGeoJSON(f, latOffset, lngOffset));
+            } else if (geojsonData.type === 'Feature') {
+                translateGeoJSON(geojsonData.geometry, latOffset, lngOffset);
+            } else if (geojsonData.type === 'Point') {
+                geojsonData.coordinates[0] += lngOffset;
+                geojsonData.coordinates[1] += latOffset;
+            } else if (geojsonData.type === 'MultiPoint' || geojsonData.type === 'LineString') {
+                geojsonData.coordinates.forEach(coord => {
+                    coord[0] += lngOffset;
+                    coord[1] += latOffset;
+                });
+            } else if (geojsonData.type === 'MultiLineString' || geojsonData.type === 'Polygon') {
+                geojsonData.coordinates.forEach(ring => {
+                    ring.forEach(coord => {
+                        coord[0] += lngOffset;
+                        coord[1] += latOffset;
+                    });
+                });
+            } else if (geojsonData.type === 'MultiPolygon') {
+                geojsonData.coordinates.forEach(poly => {
+                    poly.forEach(ring => {
+                        ring.forEach(coord => {
+                            coord[0] += lngOffset;
+                            coord[1] += latOffset;
+                        });
+                    });
+                });
+            }
+        }
+
         // Load Pretraced Track Logic
         document.getElementById('pretraced-select').addEventListener('change', async function(e) {
             const filename = e.target.value;
@@ -517,6 +553,14 @@
                 const response = await fetch(filename);
                 if (!response.ok) throw new Error("Could not load " + filename);
                 const geojsonData = await response.json();
+
+                const shouldTeleport = document.getElementById('teleport-shape-checkbox').checked;
+                if (shouldTeleport) {
+                    const tempLayer = L.geoJSON(geojsonData);
+                    const shapeCenter = tempLayer.getBounds().getCenter();
+                    const mapCenter = map.getCenter();
+                    translateGeoJSON(geojsonData, mapCenter.lat - shapeCenter.lat, mapCenter.lng - shapeCenter.lng);
+                }
 
                 const shapeName = document.querySelector(`option[value="${filename}"]`).text;
                 const importedGroup = L.geoJSON(geojsonData, {
@@ -531,7 +575,9 @@
                     originalGeoJson: JSON.parse(JSON.stringify(importedGroup.toGeoJSON()))
                 });
 
-                map.fitBounds(importedGroup.getBounds(), { padding: [50, 50] });
+                if (!shouldTeleport) {
+                    map.fitBounds(importedGroup.getBounds(), { padding: [50, 50] });
+                }
                 renderSavedList();
                 e.target.value = ''; // Reset dropdown
             } catch (err) {
@@ -576,6 +622,14 @@
 
                 if (!geojsonData) throw new Error("Invalid geometry extraction.");
 
+                const shouldTeleport = document.getElementById('teleport-shape-checkbox').checked;
+                if (shouldTeleport) {
+                    const tempLayer = L.geoJSON(geojsonData);
+                    const shapeCenter = tempLayer.getBounds().getCenter();
+                    const mapCenter = map.getCenter();
+                    translateGeoJSON(geojsonData, mapCenter.lat - shapeCenter.lat, mapCenter.lng - shapeCenter.lng);
+                }
+
                 const importedGroup = L.geoJSON(geojsonData, {
                     style: { color: '#ff2a00', weight: 4, opacity: 1, fillColor: '#ff2a00' }
                 }).addTo(map);
@@ -588,7 +642,9 @@
                     originalGeoJson: JSON.parse(JSON.stringify(importedGroup.toGeoJSON()))
                 });
 
-                map.fitBounds(importedGroup.getBounds(), { padding: [50, 50] });
+                if (!shouldTeleport) {
+                    map.fitBounds(importedGroup.getBounds(), { padding: [50, 50] });
+                }
                 renderSavedList();
 
             } catch (err) {
