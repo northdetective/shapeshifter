@@ -527,34 +527,50 @@
             }
         });
 
-        // Helper to translate GeoJSON coordinates
-        function translateGeoJSON(geojsonData, latOffset, lngOffset) {
+        // Helper to translate GeoJSON coordinates using Web Mercator to preserve visual proportions
+        function translateGeoJSON(geojsonData, deltaX, deltaY) {
             delete geojsonData.bbox; // Strip bbox so bounds are recalculated
             if (geojsonData.type === 'FeatureCollection') {
-                geojsonData.features.forEach(f => translateGeoJSON(f, latOffset, lngOffset));
+                geojsonData.features.forEach(f => translateGeoJSON(f, deltaX, deltaY));
             } else if (geojsonData.type === 'Feature') {
-                translateGeoJSON(geojsonData.geometry, latOffset, lngOffset);
+                translateGeoJSON(geojsonData.geometry, deltaX, deltaY);
             } else if (geojsonData.type === 'Point') {
-                geojsonData.coordinates[0] += lngOffset;
-                geojsonData.coordinates[1] += latOffset;
+                let p = L.CRS.EPSG3857.project(L.latLng(geojsonData.coordinates[1], geojsonData.coordinates[0]));
+                p.x += deltaX;
+                p.y += deltaY;
+                let ll = L.CRS.EPSG3857.unproject(p);
+                geojsonData.coordinates[0] = ll.lng;
+                geojsonData.coordinates[1] = ll.lat;
             } else if (geojsonData.type === 'MultiPoint' || geojsonData.type === 'LineString') {
                 geojsonData.coordinates.forEach(coord => {
-                    coord[0] += lngOffset;
-                    coord[1] += latOffset;
+                    let p = L.CRS.EPSG3857.project(L.latLng(coord[1], coord[0]));
+                    p.x += deltaX;
+                    p.y += deltaY;
+                    let ll = L.CRS.EPSG3857.unproject(p);
+                    coord[0] = ll.lng;
+                    coord[1] = ll.lat;
                 });
             } else if (geojsonData.type === 'MultiLineString' || geojsonData.type === 'Polygon') {
                 geojsonData.coordinates.forEach(ring => {
                     ring.forEach(coord => {
-                        coord[0] += lngOffset;
-                        coord[1] += latOffset;
+                        let p = L.CRS.EPSG3857.project(L.latLng(coord[1], coord[0]));
+                        p.x += deltaX;
+                        p.y += deltaY;
+                        let ll = L.CRS.EPSG3857.unproject(p);
+                        coord[0] = ll.lng;
+                        coord[1] = ll.lat;
                     });
                 });
             } else if (geojsonData.type === 'MultiPolygon') {
                 geojsonData.coordinates.forEach(poly => {
                     poly.forEach(ring => {
                         ring.forEach(coord => {
-                            coord[0] += lngOffset;
-                            coord[1] += latOffset;
+                            let p = L.CRS.EPSG3857.project(L.latLng(coord[1], coord[0]));
+                            p.x += deltaX;
+                            p.y += deltaY;
+                            let ll = L.CRS.EPSG3857.unproject(p);
+                            coord[0] = ll.lng;
+                            coord[1] = ll.lat;
                         });
                     });
                 });
@@ -576,7 +592,11 @@
                     const tempLayer = L.geoJSON(geojsonData);
                     const shapeCenter = tempLayer.getBounds().getCenter();
                     const mapCenter = map.getCenter();
-                    translateGeoJSON(geojsonData, mapCenter.lat - shapeCenter.lat, mapCenter.lng - shapeCenter.lng);
+                    const shapeCenterMercator = L.CRS.EPSG3857.project(shapeCenter);
+                    const mapCenterMercator = L.CRS.EPSG3857.project(mapCenter);
+                    const deltaX = mapCenterMercator.x - shapeCenterMercator.x;
+                    const deltaY = mapCenterMercator.y - shapeCenterMercator.y;
+                    translateGeoJSON(geojsonData, deltaX, deltaY);
                 }
 
                 const shapeName = document.querySelector(`option[value="${filename}"]`).text;
@@ -644,7 +664,11 @@
                     const tempLayer = L.geoJSON(geojsonData);
                     const shapeCenter = tempLayer.getBounds().getCenter();
                     const mapCenter = map.getCenter();
-                    translateGeoJSON(geojsonData, mapCenter.lat - shapeCenter.lat, mapCenter.lng - shapeCenter.lng);
+                    const shapeCenterMercator = L.CRS.EPSG3857.project(shapeCenter);
+                    const mapCenterMercator = L.CRS.EPSG3857.project(mapCenter);
+                    const deltaX = mapCenterMercator.x - shapeCenterMercator.x;
+                    const deltaY = mapCenterMercator.y - shapeCenterMercator.y;
+                    translateGeoJSON(geojsonData, deltaX, deltaY);
                 }
 
                 const importedGroup = L.geoJSON(geojsonData, {
