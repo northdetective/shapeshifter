@@ -511,8 +511,23 @@
             activeDrawnLayers.addLayer(e.layer);
         });
 
+        // Force rotation center to the exact visual center of the shape
+        map.on('pm:rotateenable', (e) => {
+            const layer = e.layer;
+            if (layer && layer.getBounds && layer.pm) {
+                const center = layer.getBounds().getCenter();
+                if (layer.pm._rotationCenter) {
+                    layer.pm._rotationCenter.setLatLng(center);
+                }
+                if (layer.pm._originLatLng) {
+                    layer.pm._originLatLng = center;
+                }
+            }
+        });
+
         // Helper to translate GeoJSON coordinates
         function translateGeoJSON(geojsonData, latOffset, lngOffset) {
+            delete geojsonData.bbox; // Strip bbox so bounds are recalculated
             if (geojsonData.type === 'FeatureCollection') {
                 geojsonData.features.forEach(f => translateGeoJSON(f, latOffset, lngOffset));
             } else if (geojsonData.type === 'Feature') {
