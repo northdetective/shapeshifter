@@ -527,54 +527,39 @@
             }
         });
 
-        // Helper to translate GeoJSON coordinates using Web Mercator to preserve visual proportions
-        function translateGeoJSON(geojsonData, deltaX, deltaY) {
+        // Helper to translate GeoJSON coordinates preserving real-world meters
+        function translateGeoJSON(geojsonData, shapeCenter, mapCenter) {
             delete geojsonData.bbox; // Strip bbox so bounds are recalculated
-            if (geojsonData.type === 'FeatureCollection') {
-                geojsonData.features.forEach(f => translateGeoJSON(f, deltaX, deltaY));
-            } else if (geojsonData.type === 'Feature') {
-                translateGeoJSON(geojsonData.geometry, deltaX, deltaY);
-            } else if (geojsonData.type === 'Point') {
-                let p = L.CRS.EPSG3857.project(L.latLng(geojsonData.coordinates[1], geojsonData.coordinates[0]));
-                p.x += deltaX;
-                p.y += deltaY;
-                let ll = L.CRS.EPSG3857.unproject(p);
-                geojsonData.coordinates[0] = ll.lng;
-                geojsonData.coordinates[1] = ll.lat;
-            } else if (geojsonData.type === 'MultiPoint' || geojsonData.type === 'LineString') {
-                geojsonData.coordinates.forEach(coord => {
-                    let p = L.CRS.EPSG3857.project(L.latLng(coord[1], coord[0]));
-                    p.x += deltaX;
-                    p.y += deltaY;
-                    let ll = L.CRS.EPSG3857.unproject(p);
-                    coord[0] = ll.lng;
-                    coord[1] = ll.lat;
-                });
-            } else if (geojsonData.type === 'MultiLineString' || geojsonData.type === 'Polygon') {
-                geojsonData.coordinates.forEach(ring => {
-                    ring.forEach(coord => {
-                        let p = L.CRS.EPSG3857.project(L.latLng(coord[1], coord[0]));
-                        p.x += deltaX;
-                        p.y += deltaY;
-                        let ll = L.CRS.EPSG3857.unproject(p);
-                        coord[0] = ll.lng;
-                        coord[1] = ll.lat;
-                    });
-                });
-            } else if (geojsonData.type === 'MultiPolygon') {
-                geojsonData.coordinates.forEach(poly => {
-                    poly.forEach(ring => {
-                        ring.forEach(coord => {
-                            let p = L.CRS.EPSG3857.project(L.latLng(coord[1], coord[0]));
-                            p.x += deltaX;
-                            p.y += deltaY;
-                            let ll = L.CRS.EPSG3857.unproject(p);
-                            coord[0] = ll.lng;
-                            coord[1] = ll.lat;
-                        });
-                    });
-                });
+            
+            const cosShape = Math.cos(shapeCenter.lat * Math.PI / 180);
+            const cosMap = Math.cos(mapCenter.lat * Math.PI / 180);
+            const scaleLng = cosShape / cosMap;
+            
+            function shiftPoint(coord) {
+                const dLng = coord[0] - shapeCenter.lng;
+                const dLat = coord[1] - shapeCenter.lat;
+                
+                coord[0] = mapCenter.lng + (dLng * scaleLng);
+                coord[1] = mapCenter.lat + dLat;
             }
+
+            function traverse(data) {
+                if (data.type === 'FeatureCollection') {
+                    data.features.forEach(f => traverse(f));
+                } else if (data.type === 'Feature') {
+                    traverse(data.geometry);
+                } else if (data.type === 'Point') {
+                    shiftPoint(data.coordinates);
+                } else if (data.type === 'MultiPoint' || data.type === 'LineString') {
+                    data.coordinates.forEach(coord => shiftPoint(coord));
+                } else if (data.type === 'MultiLineString' || data.type === 'Polygon') {
+                    data.coordinates.forEach(ring => ring.forEach(coord => shiftPoint(coord)));
+                } else if (data.type === 'MultiPolygon') {
+                    data.coordinates.forEach(poly => poly.forEach(ring => ring.forEach(coord => shiftPoint(coord))));
+                }
+            }
+            
+            traverse(geojsonData);
         }
 
         // Load Pretraced Track Logic
@@ -592,11 +577,7 @@
                     const tempLayer = L.geoJSON(geojsonData);
                     const shapeCenter = tempLayer.getBounds().getCenter();
                     const mapCenter = map.getCenter();
-                    const shapeCenterMercator = L.CRS.EPSG3857.project(shapeCenter);
-                    const mapCenterMercator = L.CRS.EPSG3857.project(mapCenter);
-                    const deltaX = mapCenterMercator.x - shapeCenterMercator.x;
-                    const deltaY = mapCenterMercator.y - shapeCenterMercator.y;
-                    translateGeoJSON(geojsonData, deltaX, deltaY);
+                    translateGeoJSON(geojsonData, shapeCenter, mapCenter);
                 }
 
                 const shapeName = document.querySelector(`option[value="${filename}"]`).text;
@@ -664,11 +645,7 @@
                     const tempLayer = L.geoJSON(geojsonData);
                     const shapeCenter = tempLayer.getBounds().getCenter();
                     const mapCenter = map.getCenter();
-                    const shapeCenterMercator = L.CRS.EPSG3857.project(shapeCenter);
-                    const mapCenterMercator = L.CRS.EPSG3857.project(mapCenter);
-                    const deltaX = mapCenterMercator.x - shapeCenterMercator.x;
-                    const deltaY = mapCenterMercator.y - shapeCenterMercator.y;
-                    translateGeoJSON(geojsonData, deltaX, deltaY);
+                    translateGeoJSON(geojsonData, shapeCenter, mapCenter);
                 }
 
                 const importedGroup = L.geoJSON(geojsonData, {
