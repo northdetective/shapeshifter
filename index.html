@@ -356,24 +356,33 @@
             sliderWrapper.style.transition = 'height 0.3s ease';
             sliderWrapper.style.display = 'flex';
             sliderWrapper.style.justifyContent = 'center';
+            sliderWrapper.style.alignItems = 'center';
             sliderWrapper.style.backgroundColor = '#fff';
+
+            const sliderContainer = document.createElement('div');
+            sliderContainer.style.position = 'relative';
+            sliderContainer.style.width = '20px';
+            sliderContainer.style.height = '200px';
 
             const slider = document.createElement('input');
             slider.type = 'range';
-            slider.orient = 'vertical';
             slider.min = 0;
             slider.max = 24;
             slider.step = 0.01;
             slider.value = map.getZoom();
             
-            slider.style.appearance = 'slider-vertical';
-            slider.style.width = '20px';
-            slider.style.height = '200px';
-            slider.style.margin = '4px 0';
+            slider.style.position = 'absolute';
+            slider.style.width = '200px';
+            slider.style.height = '20px';
+            slider.style.left = '-90px';
+            slider.style.top = '90px';
+            slider.style.transform = 'rotate(270deg)';
+            slider.style.margin = '0';
             slider.style.cursor = 'pointer';
             slider.style.outline = 'none';
 
-            sliderWrapper.appendChild(slider);
+            sliderContainer.appendChild(slider);
+            sliderWrapper.appendChild(sliderContainer);
             
             const zoomOut = document.querySelector('.leaflet-control-zoom-out');
             zoomContainer.insertBefore(toggleBtn, zoomOut);
