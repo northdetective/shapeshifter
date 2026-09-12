@@ -809,20 +809,6 @@
         
         function handleDragEnd(e) { groupMoveData = null; }
 
-        function handleRotateEnable(e) {
-            const layer = e.layer || e.target;
-            const groupMove = document.getElementById('group-move-toggle');
-            const shape = (groupMove && groupMove.checked) ? savedShapesData.find(s => groupHasLayer(s.layerGroup, layer)) : null;
-            if (shape && layer && layer.pm) {
-                const allLayers = getAllLeafLayers(shape.layerGroup);
-                if (allLayers.length > 1) {
-                    const center = shape.layerGroup.getBounds().getCenter();
-                    if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
-                    if (layer.pm._originLatLng) layer.pm._originLatLng = center;
-                }
-            }
-        }
-        
         function handleRotateStart(e) {
             const layer = e.layer || e.target;
             const moveAsUnit = document.getElementById('group-move-toggle');
@@ -832,10 +818,10 @@
                 const allLayers = getAllLeafLayers(shape.layerGroup);
                 if (allLayers.length > 1) {
                     const otherLayers = allLayers.filter(l => l !== layer);
-                    const center = shape.layerGroup.getBounds().getCenter();
                     
-                    if (layer.pm && layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
-                    if (layer.pm && layer.pm._originLatLng) layer.pm._originLatLng = center;
+                    // Let Geoman rotate the active layer natively around its own center,
+                    // and we will seamlessly orbit all other layers around that very same point!
+                    const center = (layer.pm && layer.pm._originLatLng) ? layer.pm._originLatLng : layer.getBounds().getCenter();
                     
                     groupRotateData = {
                         baseLayer: layer,
@@ -876,7 +862,6 @@
                 e.layer.on('pm:dragstart', handleDragStart);
                 e.layer.on('pm:drag', handleDrag);
                 e.layer.on('pm:dragend', handleDragEnd);
-                e.layer.on('pm:rotateenable', handleRotateEnable);
                 e.layer.on('pm:rotatestart', handleRotateStart);
                 e.layer.on('pm:rotate', handleRotate);
                 e.layer.on('pm:rotateend', handleRotateEnd);
@@ -887,7 +872,6 @@
         map.on('pm:dragstart', handleDragStart);
         map.on('pm:drag', handleDrag);
         map.on('pm:dragend', handleDragEnd);
-        map.on('pm:rotateenable', handleRotateEnable);
         map.on('pm:rotatestart', handleRotateStart);
         map.on('pm:rotate', handleRotate);
         map.on('pm:rotateend', handleRotateEnd);
