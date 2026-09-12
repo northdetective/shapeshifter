@@ -768,6 +768,20 @@
             return getAllLeafLayers(group).includes(targetLayer);
         }
 
+        function syncGeomanMarkers(layer) {
+            if (!layer || !layer.pm || !layer.pm._markers) return;
+            const coords = layer.getLatLngs ? layer.getLatLngs() : layer.getLatLng();
+            const sync = (markers, latlngs) => {
+                if (!markers || !latlngs) return;
+                if (Array.isArray(markers) && Array.isArray(latlngs)) {
+                    markers.forEach((m, i) => sync(m, latlngs[i]));
+                } else if (markers.setLatLng && latlngs.lat && latlngs.lng) {
+                    markers.setLatLng(latlngs);
+                }
+            };
+            sync(layer.pm._markers, coords);
+        }
+
         let groupMoveData = null;
         let groupRotateData = null;
         let globalMouseLatLng = null;
@@ -807,6 +821,7 @@
             groupMoveData.otherLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(shiftCoordsByDelta(obj.startCoords, dLat, dLng));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(shiftCoordsByDelta(obj.startCoords, dLat, dLng)[0]);
+                syncGeomanMarkers(obj.layer);
             });
         }
         
@@ -895,6 +910,7 @@
             groupRotateData.allLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg)[0]);
+                syncGeomanMarkers(obj.layer);
             });
         }
         
