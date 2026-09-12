@@ -255,7 +255,6 @@
                 <strong>From Local GeoTIFF:</strong>
                 <input type="file" id="geotiff-import" accept=".tif,.tiff" style="display: none;" />
                 <button id="import-geotiff-btn" class="btn-full btn-import" style="padding:8px; font-size:14px; margin-top:5px;">Upload GeoTIFF</button>
-                <small style="color:#666; display:block; margin-top:5px;">(GeoPDFs must be converted to GeoTIFF first)</small>
             </div>
         </details>
 
@@ -264,7 +263,10 @@
             <input type="text" id="shape-name" placeholder="Name your shape..." />
             <button id="save-shape-btn" class="btn-full btn-action">Finish feature</button>
             <label style="display: block; margin-top: 10px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="snap-toggle"> Snap drawing to start (Closed Line)
+                <input type="checkbox" id="snap-self-toggle"> Snap drawing to start (Closed Line)
+            </label>
+            <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
+                <input type="checkbox" id="snap-other-toggle"> Snap to other features (Tracing)
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
                 <input type="checkbox" id="teleport-shape-checkbox"> Teleport track to current view when adding
@@ -608,15 +610,17 @@
         });
 
         // Toggle Snap Logic
-        const snapToggle = document.getElementById('snap-toggle');
+        const snapSelfToggle = document.getElementById('snap-self-toggle');
+        const snapOtherToggle = document.getElementById('snap-other-toggle');
         function updateSnap() {
-            if (snapToggle.checked) {
-                map.pm.setGlobalOptions({ snappable: true, snapDistance: 20, snapToSelf: true });
-            } else {
-                map.pm.setGlobalOptions({ snappable: false });
-            }
+            map.pm.setGlobalOptions({
+                snappable: snapSelfToggle.checked || snapOtherToggle.checked,
+                snapDistance: 20,
+                snapToSelf: snapSelfToggle.checked
+            });
         }
-        snapToggle.addEventListener('change', updateSnap);
+        snapSelfToggle.addEventListener('change', updateSnap);
+        snapOtherToggle.addEventListener('change', updateSnap);
         updateSnap(); // initialize
 
         // 3. State Management
@@ -829,11 +833,31 @@
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'saved-item';
                 
+                let subLayersHtml = '';
+                const layers = shape.layerGroup.getLayers();
+                if (layers.length > 1) {
+                    subLayersHtml = '<div style="margin: 8px 0; padding: 5px 10px; background: #eee; border-radius: 4px;">';
+                    subLayersHtml += '<div style="font-size: 12px; color: #555; margin-bottom: 5px; font-weight: bold;">Grouped Features</div>';
+                    layers.forEach((layer) => {
+                        const layerType = layer instanceof L.Polygon ? 'Polygon' : (layer instanceof L.Polyline ? 'Line' : 'Marker');
+                        const subId = layer._leaflet_id;
+                        const layerColor = (layer.options && layer.options.color) ? layer.options.color : shape.color;
+                        subLayersHtml += `
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 13px;">
+                                <span>${layerType}</span>
+                                <input type="color" value="${layerColor}" onchange="changeSubLayerColor(${shape.id}, ${subId}, this.value)" title="Change feature color">
+                            </div>
+                        `;
+                    });
+                    subLayersHtml += '</div>';
+                }
+
                 itemDiv.innerHTML = `
                     <div class="saved-item-header">
                         <span>${shape.name}</span>
                         <input type="color" class="color-picker" value="${shape.color}" oninput="changeShapeColor(${shape.id}, this.value)" onchange="changeShapeColor(${shape.id}, this.value)" title="Change shape color">
                     </div>
+                    ${subLayersHtml}
                     <div class="shape-controls">
                         <button class="btn-teleport" onclick="teleportShape(${shape.id})">Teleport shape to current view</button>
                         <button class="btn-initial" onclick="teleportToInitial(${shape.id})">Teleport to initial location</button>
@@ -862,8 +886,27 @@
             shape.layerGroup.eachLayer(function(layer) {
                 if (typeof layer.setStyle === 'function') {
                     layer.setStyle({ color: newColor, fillColor: newColor });
+                    if (!layer.feature) layer.feature = { type: "Feature", properties: {} };
+                    if (!layer.feature.properties) layer.feature.properties = {};
+                    layer.feature.properties.stroke = newColor;
+                    layer.feature.properties.fill = newColor;
                 }
             });
+            // Optional: Re-render to update sub-layer color pickers, but might disrupt focus.
+        };
+
+        window.changeSubLayerColor = function(shapeId, layerId, newColor) {
+            const shape = savedShapesData.find(s => s.id === shapeId);
+            if (!shape || !shape.layerGroup) return;
+            
+            const layer = shape.layerGroup.getLayer(layerId);
+            if (layer && typeof layer.setStyle === 'function') {
+                layer.setStyle({ color: newColor, fillColor: newColor });
+                if (!layer.feature) layer.feature = { type: "Feature", properties: {} };
+                if (!layer.feature.properties) layer.feature.properties = {};
+                layer.feature.properties.stroke = newColor;
+                layer.feature.properties.fill = newColor;
+            }
         };
 
         // 7. Individual Shape Teleport Logic
