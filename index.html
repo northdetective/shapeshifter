@@ -260,13 +260,21 @@
 
         <div class="panel-section">
             <span class="panel-heading">Current shapes</span>
+            <select id="save-target-select" style="width: 100%; margin-bottom: 8px; padding: 12px; font-size: 14px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+                <option value="new">Create New Shape</option>
+            </select>
             <input type="text" id="shape-name" placeholder="Name your shape..." />
             <button id="save-shape-btn" class="btn-full btn-action">Finish feature</button>
+            <script>
+                document.getElementById('save-target-select').addEventListener('change', function(e) {
+                    document.getElementById('shape-name').style.display = e.target.value === 'new' ? 'block' : 'none';
+                });
+            </script>
             <label style="display: block; margin-top: 10px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="snap-self-toggle"> Snap drawing to start (Closed Line)
+                <input type="checkbox" id="snap-self-toggle"> Snap drawing to start (closed line)
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="snap-other-toggle"> Snap to other features (Tracing)
+                <input type="checkbox" id="snap-other-toggle"> Snap to other features 
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
                 <input type="checkbox" id="teleport-shape-checkbox"> Teleport track to current view when adding
@@ -824,30 +832,55 @@
                 return;
             }
 
-            const nameInput = document.getElementById('shape-name').value.trim();
-            const shapeName = nameInput !== '' ? nameInput : `Shape ${savedShapesData.length + 1}`;
-            
-            const geojsonData = activeDrawnLayers.toGeoJSON();
-            activeDrawnLayers.clearLayers();
+            const targetId = document.getElementById('save-target-select').value;
 
-            const permanentGroup = L.geoJSON(geojsonData, {
-                style: {
+            if (targetId === 'new') {
+                const nameInput = document.getElementById('shape-name').value.trim();
+                const shapeName = nameInput !== '' ? nameInput : `Shape ${savedShapesData.length + 1}`;
+                
+                const geojsonData = activeDrawnLayers.toGeoJSON();
+                activeDrawnLayers.clearLayers();
+
+                const permanentGroup = L.geoJSON(geojsonData, {
+                    style: {
+                        color: '#ff2a00',
+                        weight: 4,
+                        opacity: 1,
+                        fillColor: '#ff2a00'
+                    }
+                }).addTo(map);
+
+                savedShapesData.push({
+                    id: Date.now(),
+                    name: shapeName,
                     color: '#ff2a00',
-                    weight: 4,
-                    opacity: 1,
-                    fillColor: '#ff2a00'
+                    layerGroup: permanentGroup,
+                    originalGeoJson: JSON.parse(JSON.stringify(geojsonData)) 
+                });
+
+                document.getElementById('shape-name').value = '';
+            } else {
+                const targetShape = savedShapesData.find(s => s.id == targetId);
+                if (targetShape) {
+                    const geojsonData = activeDrawnLayers.toGeoJSON();
+                    activeDrawnLayers.clearLayers();
+                    
+                    const newLayers = L.geoJSON(geojsonData, {
+                        style: {
+                            color: targetShape.color,
+                            weight: 4,
+                            opacity: 1,
+                            fillColor: targetShape.color
+                        }
+                    });
+
+                    // Add the new layers into the existing layerGroup
+                    newLayers.eachLayer(layer => {
+                        targetShape.layerGroup.addLayer(layer);
+                    });
                 }
-            }).addTo(map);
-
-            savedShapesData.push({
-                id: Date.now(),
-                name: shapeName,
-                color: '#ff2a00',
-                layerGroup: permanentGroup,
-                originalGeoJson: JSON.parse(JSON.stringify(geojsonData)) 
-            });
-
-            document.getElementById('shape-name').value = '';
+            }
+            
             renderSavedList();
         });
 
@@ -856,7 +889,17 @@
             const listContainer = document.getElementById('saved-list');
             listContainer.innerHTML = '';
 
+            const targetSelect = document.getElementById('save-target-select');
+            const currentTargetValue = targetSelect.value;
+            targetSelect.innerHTML = '<option value="new">Create New Shape</option>';
+
             savedShapesData.forEach(shape => {
+                // Populate dropdown
+                const option = document.createElement('option');
+                option.value = shape.id;
+                option.textContent = `Add to: ${shape.name}`;
+                targetSelect.appendChild(option);
+
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'saved-item';
                 
@@ -906,6 +949,16 @@
                 `;
                 listContainer.appendChild(itemDiv);
             });
+            
+            // Restore previously selected option if it still exists
+            if (Array.from(targetSelect.options).some(opt => opt.value === currentTargetValue)) {
+                targetSelect.value = currentTargetValue;
+            } else {
+                targetSelect.value = 'new';
+            }
+            
+            // Re-trigger the display logic for the shape-name input just in case
+            document.getElementById('shape-name').style.display = targetSelect.value === 'new' ? 'block' : 'none';
         }
 
         // Color Picker Logic
