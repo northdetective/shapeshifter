@@ -631,6 +631,33 @@
             activeDrawnLayers.addLayer(e.layer);
         });
 
+        map.on('pm:remove', (e) => {
+            const removedLayer = e.layer;
+            let listChanged = false;
+
+            // Remove from active drawn layers if it hasn't been saved yet
+            if (activeDrawnLayers.hasLayer(removedLayer)) {
+                activeDrawnLayers.removeLayer(removedLayer);
+            }
+
+            // Iterate backwards so we can safely splice
+            for (let i = savedShapesData.length - 1; i >= 0; i--) {
+                const shape = savedShapesData[i];
+                if (shape.layerGroup.hasLayer(removedLayer)) {
+                    shape.layerGroup.removeLayer(removedLayer);
+                    listChanged = true;
+                    // If group is now empty, delete the whole shape
+                    if (shape.layerGroup.getLayers().length === 0) {
+                        savedShapesData.splice(i, 1);
+                    }
+                }
+            }
+
+            if (listChanged) {
+                renderSavedList();
+            }
+        });
+
         // Force rotation center to the exact visual center of the shape
         map.on('pm:rotateenable', (e) => {
             const layer = e.layer;
@@ -838,14 +865,20 @@
                 if (layers.length > 1) {
                     subLayersHtml = '<div style="margin: 8px 0; padding: 5px 10px; background: #eee; border-radius: 4px;">';
                     subLayersHtml += '<div style="font-size: 12px; color: #555; margin-bottom: 5px; font-weight: bold;">Grouped Features</div>';
-                    layers.forEach((layer) => {
-                        const layerType = layer instanceof L.Polygon ? 'Polygon' : (layer instanceof L.Polyline ? 'Line' : 'Marker');
+                    layers.forEach((layer, index) => {
+                        let layerName = (layer.feature && layer.feature.properties && layer.feature.properties.name) ? layer.feature.properties.name : null;
+                        if (!layerName) {
+                            const layerType = layer instanceof L.Polygon ? 'Polygon' : (layer instanceof L.Polyline ? 'Line' : 'Marker');
+                            layerName = `${layerType} ${index + 1}`;
+                        }
                         const subId = layer._leaflet_id;
                         const layerColor = (layer.options && layer.options.color) ? layer.options.color : shape.color;
                         subLayersHtml += `
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 13px;">
-                                <span>${layerType}</span>
-                                <input type="color" value="${layerColor}" onchange="changeSubLayerColor(${shape.id}, ${subId}, this.value)" title="Change feature color">
+                                <span style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 5px;">${layerName}</span>
+                                <button onclick="renameSubLayer(${shape.id}, ${subId})" style="background:none; border:none; cursor:pointer; padding:0 3px; font-size: 14px;" title="Rename part">✏️</button>
+                                <button onclick="deleteSubLayer(${shape.id}, ${subId})" style="background:none; border:none; cursor:pointer; padding:0 3px; font-size: 14px;" title="Delete part">🗑️</button>
+                                <input type="color" value="${layerColor}" onchange="changeSubLayerColor(${shape.id}, ${subId}, this.value)" style="margin-left: 5px;" title="Change part color">
                             </div>
                         `;
                     });
@@ -906,6 +939,42 @@
                 if (!layer.feature.properties) layer.feature.properties = {};
                 layer.feature.properties.stroke = newColor;
                 layer.feature.properties.fill = newColor;
+            }
+        };
+
+        window.renameSubLayer = function(shapeId, layerId) {
+            const shape = savedShapesData.find(s => s.id === shapeId);
+            if (!shape || !shape.layerGroup) return;
+            
+            const layer = shape.layerGroup.getLayer(layerId);
+            if (!layer) return;
+
+            const currentName = (layer.feature && layer.feature.properties && layer.feature.properties.name) ? layer.feature.properties.name : '';
+            const newName = prompt("Enter name for this part:", currentName);
+            
+            if (newName !== null) {
+                if (!layer.feature) layer.feature = { type: "Feature", properties: {} };
+                if (!layer.feature.properties) layer.feature.properties = {};
+                layer.feature.properties.name = newName.trim();
+                renderSavedList();
+            }
+        };
+
+        window.deleteSubLayer = function(shapeId, layerId) {
+            if (!confirm("Delete this part?")) return;
+            const shapeIndex = savedShapesData.findIndex(s => s.id === shapeId);
+            if (shapeIndex === -1) return;
+            const shape = savedShapesData[shapeIndex];
+            
+            const layer = shape.layerGroup.getLayer(layerId);
+            if (layer) {
+                shape.layerGroup.removeLayer(layer);
+                map.removeLayer(layer);
+                
+                if (shape.layerGroup.getLayers().length === 0) {
+                    savedShapesData.splice(shapeIndex, 1);
+                }
+                renderSavedList();
             }
         };
 
