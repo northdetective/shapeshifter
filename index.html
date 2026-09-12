@@ -764,17 +764,20 @@
         }
 
         let groupMoveData = null;
-        map.on('pm:dragstart', e => {
+        let groupRotateData = null;
+
+        function handleDragStart(e) {
+            const layer = e.layer || e.target;
             const moveAsUnit = document.getElementById('group-move-toggle');
             if (!moveAsUnit || !moveAsUnit.checked) return;
-            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, e.layer));
+            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
             if (shape) {
                 const allLayers = getAllLeafLayers(shape.layerGroup);
                 if (allLayers.length > 1) {
-                    const otherLayers = allLayers.filter(l => l !== e.layer);
+                    const otherLayers = allLayers.filter(l => l !== layer);
                     groupMoveData = {
-                        baseLayer: e.layer,
-                        baseStartCoords: e.layer.getLatLngs ? cloneLatLngs(e.layer.getLatLngs()) : cloneLatLngs([e.layer.getLatLng()]),
+                        baseLayer: layer,
+                        baseStartCoords: layer.getLatLngs ? cloneLatLngs(layer.getLatLngs()) : cloneLatLngs([layer.getLatLng()]),
                         otherLayers: otherLayers.map(l => ({
                             layer: l,
                             startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
@@ -782,11 +785,12 @@
                     };
                 }
             }
-        });
-
-        map.on('pm:drag', e => {
-            if (!groupMoveData || groupMoveData.baseLayer !== e.layer) return;
-            const currentFirst = getFirstLatLng(e.layer.getLatLngs ? e.layer.getLatLngs() : e.layer.getLatLng());
+        }
+        
+        function handleDrag(e) {
+            const layer = e.layer || e.target;
+            if (!groupMoveData || groupMoveData.baseLayer !== layer) return;
+            const currentFirst = getFirstLatLng(layer.getLatLngs ? layer.getLatLngs() : layer.getLatLng());
             const startFirst = getFirstLatLng(groupMoveData.baseStartCoords);
             if (!currentFirst || !startFirst) return;
             
@@ -796,34 +800,34 @@
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(shiftCoordsByDelta(obj.startCoords, dLat, dLng));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(shiftCoordsByDelta(obj.startCoords, dLat, dLng)[0]);
             });
-        });
+        }
+        
+        function handleDragEnd(e) { groupMoveData = null; }
 
-        map.on('pm:dragend', e => { groupMoveData = null; });
-
-        let groupRotateData = null;
-        map.on('pm:rotateenable', (e) => {
+        function handleRotateEnable(e) {
+            const layer = e.layer || e.target;
             const groupMove = document.getElementById('group-move-toggle');
-            const shape = (groupMove && groupMove.checked) ? savedShapesData.find(s => groupHasLayer(s.layerGroup, e.layer)) : null;
-            const layer = e.layer;
+            const shape = (groupMove && groupMove.checked) ? savedShapesData.find(s => groupHasLayer(s.layerGroup, layer)) : null;
             if (layer && layer.pm) {
                 const allLayers = shape ? getAllLeafLayers(shape.layerGroup) : [];
                 const center = (allLayers.length > 1) ? shape.layerGroup.getBounds().getCenter() : layer.getBounds().getCenter();
                 if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
                 if (layer.pm._originLatLng) layer.pm._originLatLng = center;
             }
-        });
-
-        map.on('pm:rotatestart', e => {
+        }
+        
+        function handleRotateStart(e) {
+            const layer = e.layer || e.target;
             const moveAsUnit = document.getElementById('group-move-toggle');
             if (!moveAsUnit || !moveAsUnit.checked) return;
-            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, e.layer));
+            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
             if (shape) {
                 const allLayers = getAllLeafLayers(shape.layerGroup);
                 if (allLayers.length > 1) {
-                    const otherLayers = allLayers.filter(l => l !== e.layer);
-                    const center = e.layer.pm._rotationCenter ? e.layer.pm._rotationCenter.getLatLng() : e.layer.getBounds().getCenter();
+                    const otherLayers = allLayers.filter(l => l !== layer);
+                    const center = layer.pm._rotationCenter ? layer.pm._rotationCenter.getLatLng() : layer.getBounds().getCenter();
                     groupRotateData = {
-                        baseLayer: e.layer,
+                        baseLayer: layer,
                         center: center,
                         otherLayers: otherLayers.map(l => ({
                             layer: l,
@@ -832,18 +836,41 @@
                     };
                 }
             }
-        });
-
-        map.on('pm:rotate', e => {
-            if (!groupRotateData || groupRotateData.baseLayer !== e.layer) return;
-            const angleDeg = e.angleDiff || 0;
+        }
+        
+        function handleRotate(e) {
+            const layer = e.layer || e.target;
+            if (!groupRotateData || groupRotateData.baseLayer !== layer) return;
+            const angleDeg = e.angleDiff || e.angle || 0;
             groupRotateData.otherLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDeg));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDeg)[0]);
             });
-        });
+        }
+        
+        function handleRotateEnd(e) { groupRotateData = null; }
 
-        map.on('pm:rotateend', e => { groupRotateData = null; });
+        // Bind events globally
+        map.on('layeradd', e => {
+            if (e.layer && typeof e.layer.on === 'function') {
+                e.layer.on('pm:dragstart', handleDragStart);
+                e.layer.on('pm:drag', handleDrag);
+                e.layer.on('pm:dragend', handleDragEnd);
+                e.layer.on('pm:rotateenable', handleRotateEnable);
+                e.layer.on('pm:rotatestart', handleRotateStart);
+                e.layer.on('pm:rotate', handleRotate);
+                e.layer.on('pm:rotateend', handleRotateEnd);
+            }
+        });
+        
+        // Also bind to map directly for Geoman map events
+        map.on('pm:dragstart', handleDragStart);
+        map.on('pm:drag', handleDrag);
+        map.on('pm:dragend', handleDragEnd);
+        map.on('pm:rotateenable', handleRotateEnable);
+        map.on('pm:rotatestart', handleRotateStart);
+        map.on('pm:rotate', handleRotate);
+        map.on('pm:rotateend', handleRotateEnd);
 
         // Helper to translate GeoJSON coordinates preserving real-world meters
         function translateGeoJSON(geojsonData, shapeCenter, mapCenter) {
@@ -904,7 +931,7 @@
                 }).addTo(map);
 
                 savedShapesData.push({
-                    id: Date.now(),
+                    id: (window.forceDropdownTarget = Date.now()),
                     name: shapeName,
                     color: '#ff2a00',
                     layerGroup: importedGroup,
@@ -971,7 +998,7 @@
                 }).addTo(map);
 
                 savedShapesData.push({
-                    id: Date.now(),
+                    id: (window.forceDropdownTarget = Date.now()),
                     name: shapeName,
                     color: '#ff2a00',
                     layerGroup: importedGroup,
@@ -1016,7 +1043,7 @@
                 }).addTo(map);
 
                 savedShapesData.push({
-                    id: Date.now(),
+                    id: (window.forceDropdownTarget = Date.now()),
                     name: shapeName,
                     color: '#ff2a00',
                     layerGroup: permanentGroup,
@@ -1116,7 +1143,10 @@
             });
             
             // Restore previously selected option if it still exists
-            if (Array.from(targetSelect.options).some(opt => opt.value === currentTargetValue)) {
+            if (window.forceDropdownTarget && Array.from(targetSelect.options).some(opt => opt.value == window.forceDropdownTarget)) {
+                targetSelect.value = window.forceDropdownTarget;
+                window.forceDropdownTarget = null;
+            } else if (Array.from(targetSelect.options).some(opt => opt.value === currentTargetValue)) {
                 targetSelect.value = currentTargetValue;
             } else {
                 targetSelect.value = 'new';
@@ -1281,7 +1311,7 @@
             }).addTo(map);
 
             savedShapesData.push({
-                id: Date.now(),
+                id: (window.forceDropdownTarget = Date.now()),
                 name: newName,
                 color: shape.color,
                 layerGroup: newGroup,
