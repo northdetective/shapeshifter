@@ -808,11 +808,13 @@
             const layer = e.layer || e.target;
             const groupMove = document.getElementById('group-move-toggle');
             const shape = (groupMove && groupMove.checked) ? savedShapesData.find(s => groupHasLayer(s.layerGroup, layer)) : null;
-            if (layer && layer.pm) {
-                const allLayers = shape ? getAllLeafLayers(shape.layerGroup) : [];
-                const center = (allLayers.length > 1) ? shape.layerGroup.getBounds().getCenter() : layer.getBounds().getCenter();
-                if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
-                if (layer.pm._originLatLng) layer.pm._originLatLng = center;
+            if (shape && layer && layer.pm) {
+                const allLayers = getAllLeafLayers(shape.layerGroup);
+                if (allLayers.length > 1) {
+                    const center = shape.layerGroup.getBounds().getCenter();
+                    if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
+                    if (layer.pm._originLatLng) layer.pm._originLatLng = center;
+                }
             }
         }
         
@@ -825,10 +827,15 @@
                 const allLayers = getAllLeafLayers(shape.layerGroup);
                 if (allLayers.length > 1) {
                     const otherLayers = allLayers.filter(l => l !== layer);
-                    const center = layer.pm._rotationCenter ? layer.pm._rotationCenter.getLatLng() : layer.getBounds().getCenter();
+                    const center = shape.layerGroup.getBounds().getCenter();
+                    
+                    if (layer.pm && layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
+                    if (layer.pm && layer.pm._originLatLng) layer.pm._originLatLng = center;
+                    
                     groupRotateData = {
                         baseLayer: layer,
                         center: center,
+                        accumulatedAngle: 0,
                         otherLayers: otherLayers.map(l => ({
                             layer: l,
                             startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
@@ -841,10 +848,13 @@
         function handleRotate(e) {
             const layer = e.layer || e.target;
             if (!groupRotateData || groupRotateData.baseLayer !== layer) return;
-            const angleDeg = e.angleDiff || e.angle || 0;
+            
+            groupRotateData.accumulatedAngle += (e.angleDiff || 0);
+            const currentAngle = groupRotateData.accumulatedAngle;
+            
             groupRotateData.otherLayers.forEach(obj => {
-                if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDeg));
-                else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDeg)[0]);
+                if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, currentAngle));
+                else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, currentAngle)[0]);
             });
         }
         
