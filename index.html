@@ -772,40 +772,45 @@
             if (!layer || !layer.pm) return;
             const coords = layer.getLatLngs ? layer.getLatLngs() : layer.getLatLng();
             
-            // Sync main vertices
-            const syncM = (markers, latlngs) => {
-                if (!markers || !latlngs) return;
-                if (Array.isArray(markers) && Array.isArray(latlngs)) {
-                    markers.forEach((m, i) => syncM(m, latlngs[i]));
-                } else if (markers.setLatLng && latlngs.lat && latlngs.lng) {
-                    markers.setLatLng(latlngs);
+            const flatten = (arr) => {
+                let res = [];
+                if (!Array.isArray(arr)) return [arr];
+                for (let item of arr) {
+                    if (Array.isArray(item)) res = res.concat(flatten(item));
+                    else res.push(item);
                 }
+                return res;
             };
-            if (layer.pm._markers) syncM(layer.pm._markers, coords);
+
+            const flatCoords = flatten(coords);
             
-            // Sync middle markers
-            const syncMid = (middleMarkers, latlngs, isPolygon) => {
-                if (!middleMarkers || !latlngs) return;
-                if (Array.isArray(middleMarkers) && Array.isArray(latlngs) && Array.isArray(middleMarkers[0])) {
-                    middleMarkers.forEach((mArr, i) => syncMid(mArr, latlngs[i], isPolygon));
-                } else if (Array.isArray(middleMarkers) && Array.isArray(latlngs)) {
-                    middleMarkers.forEach((m, i) => {
-                        if (!m || !m.setLatLng) return;
-                        const p1 = latlngs[i];
-                        const p2 = (i + 1 < latlngs.length) ? latlngs[i + 1] : (isPolygon ? latlngs[0] : null);
-                        if (!p1 || !p2) return;
-                        
+            if (layer.pm._markers) {
+                const flatMarkers = flatten(layer.pm._markers);
+                flatMarkers.forEach((m, i) => {
+                    if (m && m.setLatLng && flatCoords[i]) {
+                        m.setLatLng(flatCoords[i]);
+                    }
+                });
+            }
+            
+            if (layer.pm._middleMarkers) {
+                const flatMiddle = flatten(layer.pm._middleMarkers);
+                const isPolyline = (layer instanceof L.Polyline && !(layer instanceof L.Polygon));
+                // For polygons, middle marker i is between coord i and i+1 (wrapping to 0).
+                // For polylines, middle marker i is between coord i and i+1 (no wrapping).
+                flatMiddle.forEach((m, i) => {
+                    if (!m || !m.setLatLng) return;
+                    const p1 = flatCoords[i];
+                    let p2 = flatCoords[i + 1];
+                    if (!p2 && !isPolyline) p2 = flatCoords[0]; // Wrap around for polygons
+                    
+                    if (p1 && p2) {
                         const pt1 = map.project(p1);
                         const pt2 = map.project(p2);
                         const midPt = L.point((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2);
                         m.setLatLng(map.unproject(midPt));
-                    });
-                }
-            };
-            
-            if (layer.pm._middleMarkers) {
-                const isPolygon = layer instanceof L.Polygon;
-                syncMid(layer.pm._middleMarkers, coords, isPolygon);
+                    }
+                });
             }
         }
 
