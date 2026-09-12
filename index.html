@@ -840,12 +840,10 @@
             const layer = e.layer || e.target;
             if (!groupRotateData || groupRotateData.baseLayer !== layer) return;
             
-            // Prefer Geoman's absolute angle from start if provided, otherwise manually accumulate delta
-            if (e.angle !== undefined && e.angle !== null) {
-                groupRotateData.accumulatedAngle = e.angle;
-            } else {
-                groupRotateData.accumulatedAngle += (e.angleDiff || 0);
-            }
+            // We MUST exclusively use e.angleDiff because startCoords are captured exactly at rotatestart.
+            // If we use e.angle, and e.angle carries absolute state (e.g. 180 degrees from a previous rotate),
+            // applying it to fresh startCoords will teleport the shape instantly!
+            groupRotateData.accumulatedAngle += (e.angleDiff || 0);
             const currentAngle = groupRotateData.accumulatedAngle;
             
             groupRotateData.otherLayers.forEach(obj => {
