@@ -738,9 +738,9 @@
             const cos = Math.cos(angleRad);
             const sin = Math.sin(angleRad);
 
-            // Use high-precision flat-plane projection to match Geoman's visual rotation exactly
-            const p = map.project(latlng, 22);
-            const c = map.project(center, 22);
+            // Use exact same projection Geoman uses natively to eliminate any floating point/zoom drift
+            const p = map.project(latlng);
+            const c = map.project(center);
             
             const dx = p.x - c.x;
             const dy = p.y - c.y;
@@ -748,7 +748,7 @@
             const newDx = dx * cos - dy * sin;
             const newDy = dx * sin + dy * cos;
             
-            return map.unproject(L.point(c.x + newDx, c.y + newDy), 22);
+            return map.unproject(L.point(c.x + newDx, c.y + newDy));
         }
 
         function getAllLeafLayers(group) {
@@ -821,7 +821,7 @@
                     
                     // Let Geoman rotate the active layer natively around its own center,
                     // and we will seamlessly orbit all other layers around that very same point!
-                    const center = (layer.pm && layer.pm._originLatLng) ? layer.pm._originLatLng : layer.getBounds().getCenter();
+                    const center = (layer.pm && layer.pm._rotationCenter) ? layer.pm._rotationCenter.getLatLng() : layer.getBounds().getCenter();
                     
                     groupRotateData = {
                         baseLayer: layer,
