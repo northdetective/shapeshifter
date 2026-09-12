@@ -274,10 +274,13 @@
                 <input type="checkbox" id="snap-self-toggle"> Snap drawing to start (closed line)
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="snap-other-toggle"> Snap to other features 
+                <input type="checkbox" id="snap-other-toggle"> Snap to other features (Tracing)
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
                 <input type="checkbox" id="teleport-shape-checkbox"> Teleport track to current view when adding
+            </label>
+            <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
+                <input type="checkbox" id="group-move-toggle" checked> Grouped features move/rotate as one unit
             </label>
         </div>
 
@@ -636,7 +639,36 @@
         let activeDrawnLayers = L.featureGroup().addTo(map);
 
         map.on('pm:create', (e) => {
-            activeDrawnLayers.addLayer(e.layer);
+            const targetSelect = document.getElementById('save-target-select');
+            const targetId = targetSelect ? targetSelect.value : 'new';
+
+            if (targetId === 'new') {
+                activeDrawnLayers.addLayer(e.layer);
+            } else {
+                const targetShape = savedShapesData.find(s => s.id == targetId);
+                if (targetShape) {
+                    const tempGroup = L.featureGroup([e.layer]);
+                    const geojsonData = tempGroup.toGeoJSON();
+                    
+                    const newLayers = L.geoJSON(geojsonData, {
+                        style: {
+                            color: targetShape.color,
+                            weight: 4,
+                            opacity: 1,
+                            fillColor: targetShape.color
+                        }
+                    });
+
+                    newLayers.eachLayer(layer => {
+                        targetShape.layerGroup.addLayer(layer);
+                    });
+                    
+                    map.removeLayer(e.layer);
+                    renderSavedList();
+                } else {
+                    activeDrawnLayers.addLayer(e.layer);
+                }
+            }
         });
 
         map.on('pm:remove', (e) => {
@@ -666,19 +698,114 @@
             }
         });
 
-        // Force rotation center to the exact visual center of the shape
-        map.on('pm:rotateenable', (e) => {
-            const layer = e.layer;
-            if (layer && layer.getBounds && layer.pm) {
-                const center = layer.getBounds().getCenter();
-                if (layer.pm._rotationCenter) {
-                    layer.pm._rotationCenter.setLatLng(center);
-                }
-                if (layer.pm._originLatLng) {
-                    layer.pm._originLatLng = center;
-                }
+        // --- Group Synchronization Engine (Drag & Rotate) ---
+        function cloneLatLngs(latlngs) {
+            if (Array.isArray(latlngs)) return latlngs.map(ll => Array.isArray(ll) ? cloneLatLngs(ll) : L.latLng(ll.lat, ll.lng));
+            return L.latLng(latlngs.lat, latlngs.lng);
+        }
+
+        function getFirstLatLng(latlngs) {
+            if (Array.isArray(latlngs)) return getFirstLatLng(latlngs[0]);
+            if (latlngs && latlngs.lat !== undefined) return latlngs;
+            if (latlngs && typeof latlngs.getLatLng === 'function') return latlngs.getLatLng();
+            return latlngs;
+        }
+
+        function shiftCoordsByDelta(latlngs, dLat, dLng) {
+            if (Array.isArray(latlngs)) return latlngs.map(ll => Array.isArray(ll) ? shiftCoordsByDelta(ll, dLat, dLng) : L.latLng(ll.lat + dLat, ll.lng + dLng));
+            return L.latLng(latlngs.lat + dLat, latlngs.lng + dLng);
+        }
+
+        function rotateCoordsAroundCenter(latlngs, center, angleDeg) {
+            if (Array.isArray(latlngs)) return latlngs.map(ll => Array.isArray(ll) ? rotateCoordsAroundCenter(ll, center, angleDeg) : rotateSingle(ll, center, angleDeg));
+            return rotateSingle(latlngs, center, angleDeg);
+        }
+
+        function rotateSingle(latlng, center, angleDeg) {
+            const angleRad = angleDeg * (Math.PI / 180);
+            const cos = Math.cos(angleRad);
+            const sin = Math.sin(angleRad);
+            const cosLat = Math.cos(center.lat * Math.PI / 180);
+            
+            const dx = (latlng.lng - center.lng) * cosLat;
+            const dy = latlng.lat - center.lat;
+            const newDx = dx * cos - dy * sin;
+            const newDy = dx * sin + dy * cos;
+            return L.latLng(center.lat + newDy, center.lng + (newDx / cosLat));
+        }
+
+        let groupMoveData = null;
+        map.on('pm:dragstart', e => {
+            const moveAsUnit = document.getElementById('group-move-toggle');
+            if (!moveAsUnit || !moveAsUnit.checked) return;
+            const shape = savedShapesData.find(s => s.layerGroup.hasLayer(e.layer));
+            if (shape && shape.layerGroup.getLayers().length > 1) {
+                const otherLayers = shape.layerGroup.getLayers().filter(l => l !== e.layer);
+                groupMoveData = {
+                    baseLayer: e.layer,
+                    baseStartCoords: e.layer.getLatLngs ? cloneLatLngs(e.layer.getLatLngs()) : cloneLatLngs([e.layer.getLatLng()]),
+                    otherLayers: otherLayers.map(l => ({
+                        layer: l,
+                        startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
+                    }))
+                };
             }
         });
+
+        map.on('pm:drag', e => {
+            if (!groupMoveData || groupMoveData.baseLayer !== e.layer) return;
+            const currentFirst = getFirstLatLng(e.layer.getLatLngs ? e.layer.getLatLngs() : e.layer.getLatLng());
+            const startFirst = getFirstLatLng(groupMoveData.baseStartCoords);
+            const dLat = currentFirst.lat - startFirst.lat;
+            const dLng = currentFirst.lng - startFirst.lng;
+            groupMoveData.otherLayers.forEach(obj => {
+                if (obj.layer.setLatLngs) obj.layer.setLatLngs(shiftCoordsByDelta(obj.startCoords, dLat, dLng));
+                else if (obj.layer.setLatLng) obj.layer.setLatLng(shiftCoordsByDelta(obj.startCoords, dLat, dLng)[0]);
+            });
+        });
+
+        map.on('pm:dragend', e => { groupMoveData = null; });
+
+        let groupRotateData = null;
+        map.on('pm:rotateenable', (e) => {
+            const groupMove = document.getElementById('group-move-toggle');
+            const shape = (groupMove && groupMove.checked) ? savedShapesData.find(s => s.layerGroup.hasLayer(e.layer)) : null;
+            const layer = e.layer;
+            if (layer && layer.pm) {
+                const center = (shape && shape.layerGroup.getLayers().length > 1) ? shape.layerGroup.getBounds().getCenter() : layer.getBounds().getCenter();
+                if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
+                if (layer.pm._originLatLng) layer.pm._originLatLng = center;
+            }
+        });
+
+        map.on('pm:rotatestart', e => {
+            const moveAsUnit = document.getElementById('group-move-toggle');
+            if (!moveAsUnit || !moveAsUnit.checked) return;
+            const shape = savedShapesData.find(s => s.layerGroup.hasLayer(e.layer));
+            if (shape && shape.layerGroup.getLayers().length > 1) {
+                const otherLayers = shape.layerGroup.getLayers().filter(l => l !== e.layer);
+                const center = e.layer.pm._rotationCenter ? e.layer.pm._rotationCenter.getLatLng() : e.layer.getBounds().getCenter();
+                groupRotateData = {
+                    baseLayer: e.layer,
+                    center: center,
+                    otherLayers: otherLayers.map(l => ({
+                        layer: l,
+                        startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
+                    }))
+                };
+            }
+        });
+
+        map.on('pm:rotate', e => {
+            if (!groupRotateData || groupRotateData.baseLayer !== e.layer) return;
+            const angleDeg = e.angleDiff || 0;
+            groupRotateData.otherLayers.forEach(obj => {
+                if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDeg));
+                else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDeg)[0]);
+            });
+        });
+
+        map.on('pm:rotateend', e => { groupRotateData = null; });
 
         // Helper to translate GeoJSON coordinates preserving real-world meters
         function translateGeoJSON(geojsonData, shapeCenter, mapCenter) {
