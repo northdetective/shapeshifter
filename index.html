@@ -768,6 +768,17 @@
             return getAllLeafLayers(group).includes(targetLayer);
         }
 
+        function toggleGeomanVertices(layer, show) {
+            if (!layer || !layer.pm) return;
+            const toggle = (markers) => {
+                if (!markers) return;
+                if (Array.isArray(markers)) markers.forEach(toggle);
+                else if (markers._icon) markers._icon.style.display = show ? '' : 'none';
+            };
+            toggle(layer.pm._markers);
+            toggle(layer.pm._middleMarkers);
+        }
+
         let groupMoveData = null;
         let groupRotateData = null;
         let globalMouseLatLng = null;
@@ -786,29 +797,10 @@
                     groupMoveData = {
                         baseLayer: layer,
                         baseStartCoords: layer.getLatLngs ? cloneLatLngs(layer.getLatLngs()) : cloneLatLngs([layer.getLatLng()]),
-                        otherLayers: otherLayers.map(l => {
-                            const markerStarts = [];
-                            if (l.pm) {
-                                const saveMarkerStarts = (markers) => {
-                                    if (!markers) return;
-                                    if (Array.isArray(markers)) markers.forEach(saveMarkerStarts);
-                                    else if (markers.getLatLng) {
-                                        markerStarts.push({
-                                            marker: markers,
-                                            startLatLng: cloneLatLngs(markers.getLatLng())
-                                        });
-                                    }
-                                };
-                                saveMarkerStarts(l.pm._markers);
-                                saveMarkerStarts(l.pm._middleMarkers);
-                            }
-                            
-                            return {
-                                layer: l,
-                                startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()]),
-                                markerStarts: markerStarts
-                            };
-                        })
+                        otherLayers: otherLayers.map(l => ({
+                            layer: l,
+                            startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
+                        }))
                     };
                 }
             }
@@ -827,13 +819,20 @@
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(shiftCoordsByDelta(obj.startCoords, dLat, dLng));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(shiftCoordsByDelta(obj.startCoords, dLat, dLng)[0]);
                 
-                obj.markerStarts.forEach(mObj => {
-                    mObj.marker.setLatLng(shiftCoordsByDelta(mObj.startLatLng, dLat, dLng));
-                });
+                // Hide vertices during group drag to prevent visual clutter and sync issues
+                toggleGeomanVertices(obj.layer, false);
             });
+            toggleGeomanVertices(layer, false);
         }
         
-        function handleDragEnd(e) { groupMoveData = null; }
+        function handleDragEnd(e) {
+            const layer = e.layer || e.target;
+            if (groupMoveData) {
+                groupMoveData.otherLayers.forEach(obj => toggleGeomanVertices(obj.layer, true));
+                groupMoveData = null;
+            }
+            toggleGeomanVertices(layer, true);
+        }
 
         function getGroupRotationCenter(shapeGroup) {
             const allLayers = getAllLeafLayers(shapeGroup);
@@ -862,6 +861,9 @@
                 const center = getGroupRotationCenter(shape.layerGroup);
                 if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
                 if (layer.pm._originLatLng) layer.pm._originLatLng = center;
+                
+                // Hide all vertices while rotate tool is active as requested
+                getAllLeafLayers(shape.layerGroup).forEach(l => toggleGeomanVertices(l, false));
             }
         }
 
@@ -886,32 +888,10 @@
                         baseLayer: layer,
                         center: center,
                         initialAngle: initialAngle,
-                        // We include ALL layers, even the base layer Geoman is rotating.
-                        // We will forcefully overwrite Geoman's coordinates on the base layer
-                        // with our own mathematically synced coordinates to guarantee 100% unison.
-                        allLayers: allLayers.map(l => {
-                            const markerStarts = [];
-                            if (l.pm) {
-                                const saveMarkerStarts = (markers) => {
-                                    if (!markers) return;
-                                    if (Array.isArray(markers)) markers.forEach(saveMarkerStarts);
-                                    else if (markers.getLatLng) {
-                                        markerStarts.push({
-                                            marker: markers,
-                                            startLatLng: cloneLatLngs(markers.getLatLng())
-                                        });
-                                    }
-                                };
-                                saveMarkerStarts(l.pm._markers);
-                                saveMarkerStarts(l.pm._middleMarkers);
-                            }
-                            
-                            return {
-                                layer: l,
-                                startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()]),
-                                markerStarts: markerStarts
-                            };
-                        })
+                        allLayers: allLayers.map(l => ({
+                            layer: l,
+                            startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
+                        }))
                     };
                 }
             }
@@ -932,16 +912,9 @@
                 return;
             }
             
-            // Loop through every single layer in the group, including the main one, and forcefully rotate
-            // them to the exact computed angle relative to their original start coordinates.
             groupRotateData.allLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg)[0]);
-                
-                // Directly and rigidly rotate EVERY single marker associated with the layer using the exact same math
-                obj.markerStarts.forEach(mObj => {
-                    mObj.marker.setLatLng(rotateCoordsAroundCenter(mObj.startLatLng, groupRotateData.center, angleDiffDeg));
-                });
             });
         }
         
@@ -949,7 +922,19 @@
             groupRotateData = null; 
         }
 
-        function handleRotateDisable(e) { }
+        function handleRotateDisable(e) {
+            const layer = e.layer || e.target;
+            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
+            if (shape) {
+                // Restore vertices and fully recalculate them so they perfectly snap to the new shape
+                getAllLeafLayers(shape.layerGroup).forEach(l => {
+                    toggleGeomanVertices(l, true);
+                    if (l.pm && typeof l.pm._initMarkers === 'function') {
+                        l.pm._initMarkers();
+                    }
+                });
+            }
+        }
 
         // Bind events globally on newly added layers, ensuring we only bind to leaf nodes to prevent
         // massive duplicate event bubbling from nested L.LayerGroup / L.GeoJSON structures!
