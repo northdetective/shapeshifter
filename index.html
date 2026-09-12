@@ -770,6 +770,9 @@
 
         let groupMoveData = null;
         let groupRotateData = null;
+        let globalMouseLatLng = null;
+        
+        map.on('mousemove', e => { globalMouseLatLng = e.latlng; });
 
         function handleDragStart(e) {
             const layer = e.layer || e.target;
@@ -847,16 +850,23 @@
             if (shape) {
                 const allLayers = getAllLeafLayers(shape.layerGroup);
                 if (allLayers.length > 1) {
-                    const otherLayers = allLayers.filter(l => l !== layer);
-                    
-                    // We extract the exact live pivot point Geoman is using (which we pre-configured in rotateenable)
                     const center = (layer.pm && layer.pm._rotationCenter) ? layer.pm._rotationCenter.getLatLng() : layer.getBounds().getCenter();
+                    
+                    let initialAngle = 0;
+                    if (globalMouseLatLng) {
+                        const pMouse = map.project(globalMouseLatLng);
+                        const pCenter = map.project(center);
+                        initialAngle = Math.atan2(pMouse.y - pCenter.y, pMouse.x - pCenter.x);
+                    }
                     
                     groupRotateData = {
                         baseLayer: layer,
                         center: center,
-                        accumulatedAngle: 0,
-                        otherLayers: otherLayers.map(l => ({
+                        initialAngle: initialAngle,
+                        // We include ALL layers, even the base layer Geoman is rotating.
+                        // We will forcefully overwrite Geoman's coordinates on the base layer
+                        // with our own mathematically synced coordinates to guarantee 100% unison.
+                        allLayers: allLayers.map(l => ({
                             layer: l,
                             startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
                         }))
@@ -869,23 +879,39 @@
             const layer = e.layer || e.target;
             if (!groupRotateData || groupRotateData.baseLayer !== layer) return;
             
-            // We MUST exclusively use e.angleDiff because startCoords are captured exactly at rotatestart.
-            // If we use e.angle, and e.angle carries absolute state (e.g. 180 degrees from a previous rotate),
-            // applying it to fresh startCoords will teleport the shape instantly!
-            groupRotateData.accumulatedAngle += (e.angleDiff || 0);
-            const currentAngle = groupRotateData.accumulatedAngle;
+            let angleDiffDeg = 0;
+            if (globalMouseLatLng) {
+                const pMouse = map.project(globalMouseLatLng);
+                const pCenter = map.project(groupRotateData.center);
+                const currentAngle = Math.atan2(pMouse.y - pCenter.y, pMouse.x - pCenter.x);
+                // Convert radian delta to degrees.
+                angleDiffDeg = (currentAngle - groupRotateData.initialAngle) * 180 / Math.PI;
+            } else {
+                return;
+            }
             
-            groupRotateData.otherLayers.forEach(obj => {
-                if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, currentAngle));
-                else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, currentAngle)[0]);
+            // Loop through every single layer in the group, including the main one, and forcefully rotate
+            // them to the exact computed angle relative to their original start coordinates.
+            groupRotateData.allLayers.forEach(obj => {
+                if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg));
+                else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg)[0]);
             });
         }
         
         function handleRotateEnd(e) { groupRotateData = null; }
 
-        // Bind events globally
+        // Bind events globally on newly added layers, ensuring we only bind to leaf nodes to prevent
+        // massive duplicate event bubbling from nested L.LayerGroup / L.GeoJSON structures!
         map.on('layeradd', e => {
-            if (e.layer && typeof e.layer.on === 'function') {
+            if (e.layer && (e.layer instanceof L.Polygon || e.layer instanceof L.Polyline || e.layer instanceof L.Marker)) {
+                e.layer.off('pm:dragstart', handleDragStart);
+                e.layer.off('pm:drag', handleDrag);
+                e.layer.off('pm:dragend', handleDragEnd);
+                e.layer.off('pm:rotateenable', handleRotateEnable);
+                e.layer.off('pm:rotatestart', handleRotateStart);
+                e.layer.off('pm:rotate', handleRotate);
+                e.layer.off('pm:rotateend', handleRotateEnd);
+                
                 e.layer.on('pm:dragstart', handleDragStart);
                 e.layer.on('pm:drag', handleDrag);
                 e.layer.on('pm:dragend', handleDragEnd);
@@ -895,15 +921,6 @@
                 e.layer.on('pm:rotateend', handleRotateEnd);
             }
         });
-        
-        // Also bind to map directly for Geoman map events
-        map.on('pm:dragstart', handleDragStart);
-        map.on('pm:drag', handleDrag);
-        map.on('pm:dragend', handleDragEnd);
-        map.on('pm:rotateenable', handleRotateEnable);
-        map.on('pm:rotatestart', handleRotateStart);
-        map.on('pm:rotate', handleRotate);
-        map.on('pm:rotateend', handleRotateEnd);
 
         // Helper to translate GeoJSON coordinates preserving real-world meters
         function translateGeoJSON(geojsonData, shapeCenter, mapCenter) {
