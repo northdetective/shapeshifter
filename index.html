@@ -274,7 +274,7 @@
                 <input type="checkbox" id="snap-self-toggle"> Snap drawing to start (closed line)
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="snap-other-toggle"> Snap to other features (Tracing)
+                <input type="checkbox" id="snap-other-toggle"> Snap to other features
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
                 <input type="checkbox" id="teleport-shape-checkbox"> Teleport track to current view when adding
@@ -809,6 +809,36 @@
         
         function handleDragEnd(e) { groupMoveData = null; }
 
+        function getGroupRotationCenter(shapeGroup) {
+            const allLayers = getAllLeafLayers(shapeGroup);
+            let maxArea = -1;
+            let largestLayer = null;
+            allLayers.forEach(l => {
+                if(l.getBounds) {
+                    const b = l.getBounds();
+                    const area = (b.getNorth() - b.getSouth()) * (b.getEast() - b.getWest());
+                    if (area > maxArea) {
+                        maxArea = area;
+                        largestLayer = l;
+                    }
+                }
+            });
+            if (largestLayer) return largestLayer.getBounds().getCenter();
+            return shapeGroup.getBounds().getCenter();
+        }
+
+        function handleRotateEnable(e) {
+            const layer = e.layer || e.target;
+            const groupMove = document.getElementById('group-move-toggle');
+            if (!groupMove || !groupMove.checked) return;
+            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
+            if (shape && layer && layer.pm) {
+                const center = getGroupRotationCenter(shape.layerGroup);
+                if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
+                if (layer.pm._originLatLng) layer.pm._originLatLng = center;
+            }
+        }
+
         function handleRotateStart(e) {
             const layer = e.layer || e.target;
             const moveAsUnit = document.getElementById('group-move-toggle');
@@ -819,8 +849,7 @@
                 if (allLayers.length > 1) {
                     const otherLayers = allLayers.filter(l => l !== layer);
                     
-                    // Let Geoman rotate the active layer natively around its own center,
-                    // and we will seamlessly orbit all other layers around that very same point!
+                    // We extract the exact live pivot point Geoman is using (which we pre-configured in rotateenable)
                     const center = (layer.pm && layer.pm._rotationCenter) ? layer.pm._rotationCenter.getLatLng() : layer.getBounds().getCenter();
                     
                     groupRotateData = {
@@ -860,6 +889,7 @@
                 e.layer.on('pm:dragstart', handleDragStart);
                 e.layer.on('pm:drag', handleDrag);
                 e.layer.on('pm:dragend', handleDragEnd);
+                e.layer.on('pm:rotateenable', handleRotateEnable);
                 e.layer.on('pm:rotatestart', handleRotateStart);
                 e.layer.on('pm:rotate', handleRotate);
                 e.layer.on('pm:rotateend', handleRotateEnd);
@@ -870,6 +900,7 @@
         map.on('pm:dragstart', handleDragStart);
         map.on('pm:drag', handleDrag);
         map.on('pm:dragend', handleDragEnd);
+        map.on('pm:rotateenable', handleRotateEnable);
         map.on('pm:rotatestart', handleRotateStart);
         map.on('pm:rotate', handleRotate);
         map.on('pm:rotateend', handleRotateEnd);
