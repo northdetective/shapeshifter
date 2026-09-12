@@ -769,17 +769,44 @@
         }
 
         function syncGeomanMarkers(layer) {
-            if (!layer || !layer.pm || !layer.pm._markers) return;
+            if (!layer || !layer.pm) return;
             const coords = layer.getLatLngs ? layer.getLatLngs() : layer.getLatLng();
-            const sync = (markers, latlngs) => {
+            
+            // Sync main vertices
+            const syncM = (markers, latlngs) => {
                 if (!markers || !latlngs) return;
                 if (Array.isArray(markers) && Array.isArray(latlngs)) {
-                    markers.forEach((m, i) => sync(m, latlngs[i]));
+                    markers.forEach((m, i) => syncM(m, latlngs[i]));
                 } else if (markers.setLatLng && latlngs.lat && latlngs.lng) {
                     markers.setLatLng(latlngs);
                 }
             };
-            sync(layer.pm._markers, coords);
+            if (layer.pm._markers) syncM(layer.pm._markers, coords);
+            
+            // Sync middle markers
+            const syncMid = (middleMarkers, latlngs, isPolygon) => {
+                if (!middleMarkers || !latlngs) return;
+                if (Array.isArray(middleMarkers) && Array.isArray(latlngs) && Array.isArray(middleMarkers[0])) {
+                    middleMarkers.forEach((mArr, i) => syncMid(mArr, latlngs[i], isPolygon));
+                } else if (Array.isArray(middleMarkers) && Array.isArray(latlngs)) {
+                    middleMarkers.forEach((m, i) => {
+                        if (!m || !m.setLatLng) return;
+                        const p1 = latlngs[i];
+                        const p2 = (i + 1 < latlngs.length) ? latlngs[i + 1] : (isPolygon ? latlngs[0] : null);
+                        if (!p1 || !p2) return;
+                        
+                        const pt1 = map.project(p1);
+                        const pt2 = map.project(p2);
+                        const midPt = L.point((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2);
+                        m.setLatLng(map.unproject(midPt));
+                    });
+                }
+            };
+            
+            if (layer.pm._middleMarkers) {
+                const isPolygon = layer instanceof L.Polygon;
+                syncMid(layer.pm._middleMarkers, coords, isPolygon);
+            }
         }
 
         let groupMoveData = null;
@@ -854,19 +881,6 @@
                 const center = getGroupRotationCenter(shape.layerGroup);
                 if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
                 if (layer.pm._originLatLng) layer.pm._originLatLng = center;
-                
-                // Hide all vertices natively in DOM to ensure no squares are shown 
-                // while the rotation tool is active, precisely as requested.
-                const allLayers = getAllLeafLayers(shape.layerGroup);
-                allLayers.forEach(l => {
-                    if (l.pm && l.pm._markers) {
-                        const hideMarkers = (markers) => {
-                            if (Array.isArray(markers)) markers.forEach(hideMarkers);
-                            else if (markers && markers._icon) markers._icon.style.display = 'none';
-                        };
-                        hideMarkers(l.pm._markers);
-                    }
-                });
             }
         }
 
@@ -923,46 +937,15 @@
             groupRotateData.allLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg)[0]);
+                syncGeomanMarkers(obj.layer);
             });
         }
         
         function handleRotateEnd(e) {
-            if (groupRotateData) {
-                const layers = groupRotateData.allLayers.map(obj => obj.layer);
-                // Wait for Geoman to completely finish its internal rotateend loop before running!
-                setTimeout(() => {
-                    layers.forEach(l => {
-                        if (l.pm && typeof l.pm._initMarkers === 'function') {
-                            // Destroys and recreates markers at correct coordinates.
-                            l.pm._initMarkers();
-                            // If rotate mode is STILL active, we must hide them again.
-                            if (l.pm._markers) {
-                                const hideMarkers = (markers) => {
-                                    if (Array.isArray(markers)) markers.forEach(hideMarkers);
-                                    else if (markers && markers._icon) markers._icon.style.display = 'none';
-                                };
-                                hideMarkers(l.pm._markers);
-                            }
-                        }
-                    });
-                }, 50);
-            }
             groupRotateData = null; 
         }
 
-        function handleRotateDisable(e) {
-            const layer = e.layer || e.target;
-            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
-            if (shape) {
-                const allLayers = getAllLeafLayers(shape.layerGroup);
-                // The user disabled Rotate mode. We can restore vertex markers normally.
-                allLayers.forEach(l => {
-                    if (l.pm && typeof l.pm._initMarkers === 'function') {
-                        l.pm._initMarkers();
-                    }
-                });
-            }
-        }
+        function handleRotateDisable(e) { }
 
         // Bind events globally on newly added layers, ensuring we only bind to leaf nodes to prevent
         // massive duplicate event bubbling from nested L.LayerGroup / L.GeoJSON structures!
