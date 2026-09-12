@@ -768,15 +768,51 @@
             return getAllLeafLayers(group).includes(targetLayer);
         }
 
-        function toggleGeomanVertices(layer, show) {
+        function syncGeomanVerticesRobust(layer, targetCoords) {
             if (!layer || !layer.pm) return;
-            const toggle = (markers) => {
-                if (!markers) return;
-                if (Array.isArray(markers)) markers.forEach(toggle);
-                else if (markers._icon) markers._icon.style.display = show ? '' : 'none';
+            
+            // Flatten coordinates recursively to guarantee linear ordering regardless of GeoJSON depths
+            const flatCoords = [];
+            const flattenCoords = (c) => {
+                if (Array.isArray(c)) c.forEach(flattenCoords);
+                else flatCoords.push(c);
             };
-            toggle(layer.pm._markers);
-            toggle(layer.pm._middleMarkers);
+            flattenCoords(targetCoords);
+
+            // Flatten main markers and assign 1-to-1 to avoid Geoman/Leaflet array depth mismatches
+            if (layer.pm._markers) {
+                const flatMarkers = [];
+                const flattenMarkers = (m) => {
+                    if (Array.isArray(m)) m.forEach(flattenMarkers);
+                    else flatMarkers.push(m);
+                };
+                flattenMarkers(layer.pm._markers);
+
+                flatMarkers.forEach((m, i) => {
+                    if (m && m.setLatLng && flatCoords[i]) {
+                        m.setLatLng(flatCoords[i]);
+                    }
+                });
+            }
+
+            // Flatten middle markers and calculate exact spherical mercator midpoints using Geoman's native adjacent marker references
+            if (layer.pm._middleMarkers) {
+                const flatMiddle = [];
+                const flattenMiddle = (m) => {
+                    if (Array.isArray(m)) m.forEach(flattenMiddle);
+                    else flatMiddle.push(m);
+                };
+                flattenMiddle(layer.pm._middleMarkers);
+
+                flatMiddle.forEach(m => {
+                    if (m && m.setLatLng && m.leftM && m.rightM) {
+                        const pt1 = map.project(m.leftM.getLatLng());
+                        const pt2 = map.project(m.rightM.getLatLng());
+                        const midPt = L.point((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2);
+                        m.setLatLng(map.unproject(midPt));
+                    }
+                });
+            }
         }
 
         let groupMoveData = null;
@@ -790,19 +826,20 @@
             const moveAsUnit = document.getElementById('group-move-toggle');
             if (!moveAsUnit || !moveAsUnit.checked) return;
             const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
-            if (shape) {
-                const allLayers = getAllLeafLayers(shape.layerGroup);
-                if (allLayers.length > 1) {
-                    const otherLayers = allLayers.filter(l => l !== layer);
-                    groupMoveData = {
-                        baseLayer: layer,
-                        baseStartCoords: layer.getLatLngs ? cloneLatLngs(layer.getLatLngs()) : cloneLatLngs([layer.getLatLng()]),
-                        otherLayers: otherLayers.map(l => ({
-                            layer: l,
-                            startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
-                        }))
-                    };
-                }
+            let baseGroup = shape ? shape.layerGroup : null;
+            if (!baseGroup && groupHasLayer(activeDrawnLayers, layer)) baseGroup = activeDrawnLayers;
+            
+            if (baseGroup) {
+                const allLayers = getAllLeafLayers(baseGroup);
+                const otherLayers = allLayers.filter(l => l !== layer);
+                groupMoveData = {
+                    baseLayer: layer,
+                    baseStartCoords: layer.getLatLngs ? cloneLatLngs(layer.getLatLngs()) : cloneLatLngs([layer.getLatLng()]),
+                    otherLayers: otherLayers.map(l => ({
+                        layer: l,
+                        startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
+                    }))
+                };
             }
         }
         
@@ -816,23 +853,16 @@
             const dLat = currentFirst.lat - startFirst.lat;
             const dLng = currentFirst.lng - startFirst.lng;
             groupMoveData.otherLayers.forEach(obj => {
-                if (obj.layer.setLatLngs) obj.layer.setLatLngs(shiftCoordsByDelta(obj.startCoords, dLat, dLng));
-                else if (obj.layer.setLatLng) obj.layer.setLatLng(shiftCoordsByDelta(obj.startCoords, dLat, dLng)[0]);
+                const newCoords = shiftCoordsByDelta(obj.startCoords, dLat, dLng);
+                if (obj.layer.setLatLngs) obj.layer.setLatLngs(newCoords);
+                else if (obj.layer.setLatLng) obj.layer.setLatLng(newCoords[0]);
                 
-                // Hide vertices during group drag to prevent visual clutter and sync issues
-                toggleGeomanVertices(obj.layer, false);
+                syncGeomanVerticesRobust(obj.layer, newCoords);
             });
-            toggleGeomanVertices(layer, false);
+            syncGeomanVerticesRobust(layer, shiftCoordsByDelta(groupMoveData.baseStartCoords, dLat, dLng));
         }
         
-        function handleDragEnd(e) {
-            const layer = e.layer || e.target;
-            if (groupMoveData) {
-                groupMoveData.otherLayers.forEach(obj => toggleGeomanVertices(obj.layer, true));
-                groupMoveData = null;
-            }
-            toggleGeomanVertices(layer, true);
-        }
+        function handleDragEnd(e) { groupMoveData = null; }
 
         function getGroupRotationCenter(shapeGroup) {
             const allLayers = getAllLeafLayers(shapeGroup);
@@ -857,64 +887,91 @@
             const groupMove = document.getElementById('group-move-toggle');
             if (!groupMove || !groupMove.checked) return;
             const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
-            if (shape && layer && layer.pm) {
-                const center = getGroupRotationCenter(shape.layerGroup);
+            let baseGroup = shape ? shape.layerGroup : null;
+            if (!baseGroup && groupHasLayer(activeDrawnLayers, layer)) baseGroup = activeDrawnLayers;
+            
+            if (baseGroup && layer && layer.pm) {
+                const center = getGroupRotationCenter(baseGroup);
                 if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
                 if (layer.pm._originLatLng) layer.pm._originLatLng = center;
-                
-                // Hide all vertices while rotate tool is active as requested
-                getAllLeafLayers(shape.layerGroup).forEach(l => toggleGeomanVertices(l, false));
             }
         }
 
         function handleRotateStart(e) {
-            const layer = e.layer || e.target;
+            // Geoman 2.17.0 passes the real layer as helpLayer during rotation because layer is the ghost layer
             const moveAsUnit = document.getElementById('group-move-toggle');
             if (!moveAsUnit || !moveAsUnit.checked) return;
-            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
-            if (shape) {
-                const allLayers = getAllLeafLayers(shape.layerGroup);
-                if (allLayers.length > 1) {
-                    const center = (layer.pm && layer.pm._rotationCenter) ? layer.pm._rotationCenter.getLatLng() : layer.getBounds().getCenter();
-                    
-                    let initialAngle = 0;
-                    if (globalMouseLatLng) {
-                        const pMouse = map.project(globalMouseLatLng);
-                        const pCenter = map.project(center);
-                        initialAngle = Math.atan2(pMouse.y - pCenter.y, pMouse.x - pCenter.x);
-                    }
-                    
-                    groupRotateData = {
-                        baseLayer: layer,
-                        center: center,
-                        initialAngle: initialAngle,
-                        allLayers: allLayers.map(l => ({
-                            layer: l,
-                            startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
-                        }))
-                    };
-                }
+            const targetLayers = [e.helpLayer, e.layer, e.target].filter(Boolean);
+            const shape = savedShapesData.find(s => targetLayers.some(l => l === s.layerGroup || groupHasLayer(s.layerGroup, l)));
+            let baseGroup = shape ? shape.layerGroup : null;
+            if (!baseGroup && targetLayers.some(l => groupHasLayer(activeDrawnLayers, l))) baseGroup = activeDrawnLayers;
+            
+            if (baseGroup) {
+                // Determine the true base layer that Geoman is actively targeting so we match it in handleRotate
+                const baseLayer = targetLayers.find(l => l === baseGroup || groupHasLayer(baseGroup, l)) || e.helpLayer || e.layer;
+                const allLayers = getAllLeafLayers(baseGroup);
+                const center = (baseLayer.pm && baseLayer.pm._rotationCenter) ? baseLayer.pm._rotationCenter.getLatLng() : baseLayer.getBounds().getCenter();
+                
+                groupRotateData = {
+                    baseLayer: baseLayer,
+                    layerGroup: baseGroup,
+                    center: center,
+                    allLayers: allLayers.map(l => ({
+                        layer: l,
+                        startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
+                    }))
+                };
             }
         }
         
         function handleRotate(e) {
-            const layer = e.layer || e.target;
-            if (!groupRotateData || groupRotateData.baseLayer !== layer) return;
+            if (!groupRotateData) return;
+            const targetLayers = [e.helpLayer, e.layer, e.target].filter(Boolean);
+            const matchesGroup = targetLayers.some(l => l === groupRotateData.baseLayer || l === groupRotateData.layerGroup || groupHasLayer(groupRotateData.layerGroup, l));
+            if (!matchesGroup) return;
             
-            let angleDiffDeg = 0;
-            if (globalMouseLatLng) {
-                const pMouse = map.project(globalMouseLatLng);
-                const pCenter = map.project(groupRotateData.center);
-                const currentAngle = Math.atan2(pMouse.y - pCenter.y, pMouse.x - pCenter.x);
-                // Convert radian delta to degrees.
-                angleDiffDeg = (currentAngle - groupRotateData.initialAngle) * 180 / Math.PI;
-            } else {
-                return;
+            // Geoman natively provides the exact angle difference in degrees since the start of the drag!
+            const angleDiffDeg = e.angleDiff;
+            if (typeof angleDiffDeg !== 'number') return;
+            
+            // Natively, Geoman creates a _rotatePoly (ghost layer) on whatever layer it targets.
+            // We must strictly map these ghost layers to their corresponding real layers to prevent teleportation.
+            let ghostLayerMapping = new Map();
+            if (groupRotateData.baseLayer.pm && groupRotateData.baseLayer.pm._rotatePoly) {
+                const ghostBase = groupRotateData.baseLayer.pm._rotatePoly;
+                if (ghostBase instanceof L.LayerGroup || ghostBase instanceof L.FeatureGroup) {
+                    const ghostLeaves = getAllLeafLayers(ghostBase);
+                    const realLeaves = getAllLeafLayers(groupRotateData.baseLayer);
+                    realLeaves.forEach((rl, i) => {
+                        ghostLayerMapping.set(rl, ghostLeaves[i]);
+                    });
+                } else {
+                    ghostLayerMapping.set(groupRotateData.baseLayer, ghostBase);
+                }
             }
             
-            groupRotateData.allLayers.forEach(obj => {
-                if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg));
-                else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg)[0]);
+            groupRotateData.allLayers.forEach((obj) => {
+                const newCoords = rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg);
+                
+                // Update mathematical shape layers globally
+                if (obj.layer.setLatLngs) obj.layer.setLatLngs(newCoords);
+                else if (obj.layer.setLatLng) obj.layer.setLatLng(newCoords[0]);
+
+                // Intercept Geoman's active ghost leaf layer where it natively renders its squashing vertices!
+                const ghostLayer = ghostLayerMapping.get(obj.layer);
+                if (ghostLayer) {
+                    if (ghostLayer.setLatLngs) ghostLayer.setLatLngs(newCoords);
+                    if (ghostLayer.setStyle) ghostLayer.setStyle({ opacity: 0, fillOpacity: 0 }); // Hide the ghost track visual, keep vertices!
+                    syncGeomanVerticesRobust(ghostLayer, newCoords);
+                } else if (obj.layer.pm && obj.layer.pm._rotatePoly) {
+                    // Fallback
+                    if (obj.layer.pm._rotatePoly.setLatLngs) obj.layer.pm._rotatePoly.setLatLngs(newCoords);
+                    if (obj.layer.pm._rotatePoly.setStyle) obj.layer.pm._rotatePoly.setStyle({ opacity: 0, fillOpacity: 0 });
+                    syncGeomanVerticesRobust(obj.layer.pm._rotatePoly, newCoords);
+                }
+                
+                // Backup sync for non-active layers if Geoman ever displays their markers natively during drag
+                syncGeomanVerticesRobust(obj.layer, newCoords);
             });
         }
         
@@ -922,40 +979,27 @@
             groupRotateData = null; 
         }
 
-        function handleRotateDisable(e) {
-            const layer = e.layer || e.target;
-            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
-            if (shape) {
-                // Restore vertices and fully recalculate them so they perfectly snap to the new shape
-                getAllLeafLayers(shape.layerGroup).forEach(l => {
-                    toggleGeomanVertices(l, true);
-                    if (l.pm && typeof l.pm._initMarkers === 'function') {
-                        l.pm._initMarkers();
-                    }
-                });
-            }
-        }
+        function handleRotateDisable(e) { }
 
-        // Bind events globally on newly added layers, ensuring we only bind to leaf nodes to prevent
-        // massive duplicate event bubbling from nested L.LayerGroup / L.GeoJSON structures!
+        // Bind map-level events for rotation because Geoman only fires rotate events on the map and the ghost layer, NOT the base layer!
+        map.on('pm:rotatestart', handleRotateStart);
+        map.on('pm:rotate', handleRotate);
+        map.on('pm:rotateend', handleRotateEnd);
+
+        // Bind drag events on newly added layers
         map.on('layeradd', e => {
             if (e.layer && (e.layer instanceof L.Polygon || e.layer instanceof L.Polyline || e.layer instanceof L.Marker)) {
                 e.layer.off('pm:dragstart', handleDragStart);
                 e.layer.off('pm:drag', handleDrag);
                 e.layer.off('pm:dragend', handleDragEnd);
                 e.layer.off('pm:rotateenable', handleRotateEnable);
-                e.layer.off('pm:rotatestart', handleRotateStart);
-                e.layer.off('pm:rotate', handleRotate);
-                e.layer.off('pm:rotateend', handleRotateEnd);
+                e.layer.off('pm:rotatedisable', handleRotateDisable);
                 
                 e.layer.on('pm:dragstart', handleDragStart);
                 e.layer.on('pm:drag', handleDrag);
                 e.layer.on('pm:dragend', handleDragEnd);
                 e.layer.on('pm:rotateenable', handleRotateEnable);
                 e.layer.on('pm:rotatedisable', handleRotateDisable);
-                e.layer.on('pm:rotatestart', handleRotateStart);
-                e.layer.on('pm:rotate', handleRotate);
-                e.layer.on('pm:rotateend', handleRotateEnd);
             }
         });
 
