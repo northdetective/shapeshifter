@@ -795,7 +795,7 @@
                                     else if (markers.getLatLng) {
                                         markerStarts.push({
                                             marker: markers,
-                                            startLatLng: markers.getLatLng()
+                                            startLatLng: cloneLatLngs(markers.getLatLng())
                                         });
                                     }
                                 };
@@ -898,7 +898,7 @@
                                     else if (markers.getLatLng) {
                                         markerStarts.push({
                                             marker: markers,
-                                            startLatLng: markers.getLatLng()
+                                            startLatLng: cloneLatLngs(markers.getLatLng())
                                         });
                                     }
                                 };
