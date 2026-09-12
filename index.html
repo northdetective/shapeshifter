@@ -854,6 +854,19 @@
                 const center = getGroupRotationCenter(shape.layerGroup);
                 if (layer.pm._rotationCenter) layer.pm._rotationCenter.setLatLng(center);
                 if (layer.pm._originLatLng) layer.pm._originLatLng = center;
+                
+                // Hide all vertices natively in DOM to ensure no squares are shown 
+                // while the rotation tool is active, precisely as requested.
+                const allLayers = getAllLeafLayers(shape.layerGroup);
+                allLayers.forEach(l => {
+                    if (l.pm && l.pm._markers) {
+                        const hideMarkers = (markers) => {
+                            if (Array.isArray(markers)) markers.forEach(hideMarkers);
+                            else if (markers && markers._icon) markers._icon.style.display = 'none';
+                        };
+                        hideMarkers(l.pm._markers);
+                    }
+                });
             }
         }
 
@@ -910,11 +923,46 @@
             groupRotateData.allLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg)[0]);
-                syncGeomanMarkers(obj.layer);
             });
         }
         
-        function handleRotateEnd(e) { groupRotateData = null; }
+        function handleRotateEnd(e) {
+            if (groupRotateData) {
+                const layers = groupRotateData.allLayers.map(obj => obj.layer);
+                // Wait for Geoman to completely finish its internal rotateend loop before running!
+                setTimeout(() => {
+                    layers.forEach(l => {
+                        if (l.pm && typeof l.pm._initMarkers === 'function') {
+                            // Destroys and recreates markers at correct coordinates.
+                            l.pm._initMarkers();
+                            // If rotate mode is STILL active, we must hide them again.
+                            if (l.pm._markers) {
+                                const hideMarkers = (markers) => {
+                                    if (Array.isArray(markers)) markers.forEach(hideMarkers);
+                                    else if (markers && markers._icon) markers._icon.style.display = 'none';
+                                };
+                                hideMarkers(l.pm._markers);
+                            }
+                        }
+                    });
+                }, 50);
+            }
+            groupRotateData = null; 
+        }
+
+        function handleRotateDisable(e) {
+            const layer = e.layer || e.target;
+            const shape = savedShapesData.find(s => groupHasLayer(s.layerGroup, layer));
+            if (shape) {
+                const allLayers = getAllLeafLayers(shape.layerGroup);
+                // The user disabled Rotate mode. We can restore vertex markers normally.
+                allLayers.forEach(l => {
+                    if (l.pm && typeof l.pm._initMarkers === 'function') {
+                        l.pm._initMarkers();
+                    }
+                });
+            }
+        }
 
         // Bind events globally on newly added layers, ensuring we only bind to leaf nodes to prevent
         // massive duplicate event bubbling from nested L.LayerGroup / L.GeoJSON structures!
@@ -932,6 +980,7 @@
                 e.layer.on('pm:drag', handleDrag);
                 e.layer.on('pm:dragend', handleDragEnd);
                 e.layer.on('pm:rotateenable', handleRotateEnable);
+                e.layer.on('pm:rotatedisable', handleRotateDisable);
                 e.layer.on('pm:rotatestart', handleRotateStart);
                 e.layer.on('pm:rotate', handleRotate);
                 e.layer.on('pm:rotateend', handleRotateEnd);
