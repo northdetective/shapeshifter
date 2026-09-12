@@ -768,52 +768,6 @@
             return getAllLeafLayers(group).includes(targetLayer);
         }
 
-        function syncGeomanMarkers(layer) {
-            if (!layer || !layer.pm) return;
-            const coords = layer.getLatLngs ? layer.getLatLngs() : layer.getLatLng();
-            
-            const flatten = (arr) => {
-                let res = [];
-                if (!Array.isArray(arr)) return [arr];
-                for (let item of arr) {
-                    if (Array.isArray(item)) res = res.concat(flatten(item));
-                    else res.push(item);
-                }
-                return res;
-            };
-
-            const flatCoords = flatten(coords);
-            
-            if (layer.pm._markers) {
-                const flatMarkers = flatten(layer.pm._markers);
-                flatMarkers.forEach((m, i) => {
-                    if (m && m.setLatLng && flatCoords[i]) {
-                        m.setLatLng(flatCoords[i]);
-                    }
-                });
-            }
-            
-            if (layer.pm._middleMarkers) {
-                const flatMiddle = flatten(layer.pm._middleMarkers);
-                const isPolyline = (layer instanceof L.Polyline && !(layer instanceof L.Polygon));
-                // For polygons, middle marker i is between coord i and i+1 (wrapping to 0).
-                // For polylines, middle marker i is between coord i and i+1 (no wrapping).
-                flatMiddle.forEach((m, i) => {
-                    if (!m || !m.setLatLng) return;
-                    const p1 = flatCoords[i];
-                    let p2 = flatCoords[i + 1];
-                    if (!p2 && !isPolyline) p2 = flatCoords[0]; // Wrap around for polygons
-                    
-                    if (p1 && p2) {
-                        const pt1 = map.project(p1);
-                        const pt2 = map.project(p2);
-                        const midPt = L.point((pt1.x + pt2.x) / 2, (pt1.y + pt2.y) / 2);
-                        m.setLatLng(map.unproject(midPt));
-                    }
-                });
-            }
-        }
-
         let groupMoveData = null;
         let groupRotateData = null;
         let globalMouseLatLng = null;
@@ -832,10 +786,29 @@
                     groupMoveData = {
                         baseLayer: layer,
                         baseStartCoords: layer.getLatLngs ? cloneLatLngs(layer.getLatLngs()) : cloneLatLngs([layer.getLatLng()]),
-                        otherLayers: otherLayers.map(l => ({
-                            layer: l,
-                            startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
-                        }))
+                        otherLayers: otherLayers.map(l => {
+                            const markerStarts = [];
+                            if (l.pm) {
+                                const saveMarkerStarts = (markers) => {
+                                    if (!markers) return;
+                                    if (Array.isArray(markers)) markers.forEach(saveMarkerStarts);
+                                    else if (markers.getLatLng) {
+                                        markerStarts.push({
+                                            marker: markers,
+                                            startLatLng: markers.getLatLng()
+                                        });
+                                    }
+                                };
+                                saveMarkerStarts(l.pm._markers);
+                                saveMarkerStarts(l.pm._middleMarkers);
+                            }
+                            
+                            return {
+                                layer: l,
+                                startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()]),
+                                markerStarts: markerStarts
+                            };
+                        })
                     };
                 }
             }
@@ -853,7 +826,10 @@
             groupMoveData.otherLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(shiftCoordsByDelta(obj.startCoords, dLat, dLng));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(shiftCoordsByDelta(obj.startCoords, dLat, dLng)[0]);
-                syncGeomanMarkers(obj.layer);
+                
+                obj.markerStarts.forEach(mObj => {
+                    mObj.marker.setLatLng(shiftCoordsByDelta(mObj.startLatLng, dLat, dLng));
+                });
             });
         }
         
@@ -913,10 +889,29 @@
                         // We include ALL layers, even the base layer Geoman is rotating.
                         // We will forcefully overwrite Geoman's coordinates on the base layer
                         // with our own mathematically synced coordinates to guarantee 100% unison.
-                        allLayers: allLayers.map(l => ({
-                            layer: l,
-                            startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()])
-                        }))
+                        allLayers: allLayers.map(l => {
+                            const markerStarts = [];
+                            if (l.pm) {
+                                const saveMarkerStarts = (markers) => {
+                                    if (!markers) return;
+                                    if (Array.isArray(markers)) markers.forEach(saveMarkerStarts);
+                                    else if (markers.getLatLng) {
+                                        markerStarts.push({
+                                            marker: markers,
+                                            startLatLng: markers.getLatLng()
+                                        });
+                                    }
+                                };
+                                saveMarkerStarts(l.pm._markers);
+                                saveMarkerStarts(l.pm._middleMarkers);
+                            }
+                            
+                            return {
+                                layer: l,
+                                startCoords: l.getLatLngs ? cloneLatLngs(l.getLatLngs()) : cloneLatLngs([l.getLatLng()]),
+                                markerStarts: markerStarts
+                            };
+                        })
                     };
                 }
             }
@@ -942,7 +937,11 @@
             groupRotateData.allLayers.forEach(obj => {
                 if (obj.layer.setLatLngs) obj.layer.setLatLngs(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg));
                 else if (obj.layer.setLatLng) obj.layer.setLatLng(rotateCoordsAroundCenter(obj.startCoords, groupRotateData.center, angleDiffDeg)[0]);
-                syncGeomanMarkers(obj.layer);
+                
+                // Directly and rigidly rotate EVERY single marker associated with the layer using the exact same math
+                obj.markerStarts.forEach(mObj => {
+                    mObj.marker.setLatLng(rotateCoordsAroundCenter(mObj.startLatLng, groupRotateData.center, angleDiffDeg));
+                });
             });
         }
         
