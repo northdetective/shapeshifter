@@ -737,13 +737,18 @@
             const angleRad = angleDeg * (Math.PI / 180);
             const cos = Math.cos(angleRad);
             const sin = Math.sin(angleRad);
-            const cosLat = Math.cos(center.lat * Math.PI / 180);
+
+            // Use high-precision flat-plane projection to match Geoman's visual rotation exactly
+            const p = map.project(latlng, 22);
+            const c = map.project(center, 22);
             
-            const dx = (latlng.lng - center.lng) * cosLat;
-            const dy = latlng.lat - center.lat;
+            const dx = p.x - c.x;
+            const dy = p.y - c.y;
+            
             const newDx = dx * cos - dy * sin;
             const newDy = dx * sin + dy * cos;
-            return L.latLng(center.lat + newDy, center.lng + (newDx / cosLat));
+            
+            return map.unproject(L.point(c.x + newDx, c.y + newDy), 22);
         }
 
         function getAllLeafLayers(group) {
@@ -849,7 +854,12 @@
             const layer = e.layer || e.target;
             if (!groupRotateData || groupRotateData.baseLayer !== layer) return;
             
-            groupRotateData.accumulatedAngle += (e.angleDiff || 0);
+            // Prefer Geoman's absolute angle from start if provided, otherwise manually accumulate delta
+            if (e.angle !== undefined && e.angle !== null) {
+                groupRotateData.accumulatedAngle = e.angle;
+            } else {
+                groupRotateData.accumulatedAngle += (e.angleDiff || 0);
+            }
             const currentAngle = groupRotateData.accumulatedAngle;
             
             groupRotateData.otherLayers.forEach(obj => {
