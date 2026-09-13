@@ -11,6 +11,8 @@
         body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: #000; }
         #map { height: 100vh; width: 100vw; }
         
+
+
         /* Control Panel Styles */
         #control-panel {
             position: absolute;
@@ -636,6 +638,122 @@
             removalMode: true,
             cutPolygon: false
         });
+        
+        // 2b. Safely inject Rectangle tool directly into Geoman's final toolbar block
+        setTimeout(() => {
+            const toolbars = document.querySelectorAll('.leaflet-pm-toolbar');
+            if (toolbars.length > 0) {
+                const lastToolbar = toolbars[toolbars.length - 1];
+                
+                const btnContainer = L.DomUtil.create('div', 'button-container', lastToolbar);
+                const a = L.DomUtil.create('a', 'leaflet-buttons-control-button', btnContainer);
+                a.href = '#';
+                a.title = 'Draw Rectangle';
+                
+                const icon = L.DomUtil.create('div', 'control-icon', a);
+                // Explicitly set the icon so it isn't lost if CSS scoping fails
+                icon.style.backgroundImage = "url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\">%0A  <defs>%0A    <path id=\"rectangle-a\" d=\"M23,10.9645556 L23,19.0354444 C24.6961471,19.2780593 26,20.736764 26,22.5 C26,24.4329966 24.4329966,26 22.5,26 C20.736764,26 19.2780593,24.6961471 19.0354444,23 L10.9645556,23 C10.7219407,24.6961471 9.26323595,26 7.5,26 C5.56700338,26 4,24.4329966 4,22.5 C4,20.736764 5.30385293,19.2780593 7,19.0354444 L7,10.9645556 C5.30385293,10.7219407 4,9.26323595 4,7.5 C4,5.56700338 5.56700338,4 7.5,4 C9.26323595,4 10.7219407,5.30385293 10.9645556,7 L19.0354444,7 C19.2780593,5.30385293 20.736764,4 22.5,4 C24.4329966,4 26,5.56700338 26,7.5 C26,9.26323595 24.6961471,10.7219407 23,10.9645556 Z M21,10.6631844 C20.272154,10.3174225 19.6825775,9.72784598 19.3368156,9 L10.6631844,9 C10.3174225,9.72784598 9.72784598,10.3174225 9,10.6631844 L9,19.3368156 C9.72784598,19.6825775 10.3174225,20.272154 10.6631844,21 L19.3368156,21 C19.6825775,20.272154 20.272154,19.6825775 21,19.3368156 L21,10.6631844 Z M7.5,9 C8.32842712,9 9,8.32842712 9,7.5 C9,6.67157288 8.32842712,6 7.5,6 C6.67157288,6 6,6.67157288 6,7.5 C6,8.32842712 6.67157288,9 7.5,9 Z M22.5,9 C23.3284271,9 24,8.32842712 24,7.5 C24,6.67157288 23.3284271,6 22.5,6 C21.6715729,6 21,6.67157288 21,7.5 C21,8.32842712 21.6715729,9 22.5,9 Z M22.5,24 C23.3284271,24 24,23.3284271 24,22.5 C24,21.6715729 23.3284271,21 22.5,21 C21.6715729,21 21,21.6715729 21,22.5 C21,23.3284271 21.6715729,24 22.5,24 Z M7.5,24 C8.32842712,24 9,23.3284271 9,22.5 C9,21.6715729 8.32842712,21 7.5,21 C6.67157288,21 6,21.6715729 6,22.5 C6,23.3284271 6.67157288,24 7.5,24 Z\"/>%0A  </defs>%0A  <g fill=\"none\" fill-rule=\"evenodd\" transform=\"translate(-3 -3)\">%0A    <mask id=\"rectangle-b\" fill=\"%23fff\">%0A      <use xlink:href=\"%23rectangle-a\"/>%0A    </mask>%0A    <use fill=\"%235B5B5B\" fill-rule=\"nonzero\" xlink:href=\"%23rectangle-a\"/>%0A    <g fill=\"%235B5B5B\" mask=\"url(%23rectangle-b)\">%0A      <rect width=\"30\" height=\"30\"/>%0A    </g>%0A  </g>%0A</svg>')";
+                
+                // Optional: fix icon alignment explicitly
+                a.style.display = 'flex';
+                a.style.alignItems = 'center';
+                a.style.justifyContent = 'center';
+                icon.style.width = '18px';
+                icon.style.height = '18px';
+                icon.style.margin = 'auto';
+
+                L.DomEvent.disableClickPropagation(btnContainer);
+                
+                // Custom 3-Point Rectangle Logic
+                let draw3PR = {
+                    active: false, p0: null, p1: null, hintLine: null, hintRect: null, btnNode: a,
+
+                    enable: function() {
+                        this.active = true; this.p0 = null; this.p1 = null;
+                        map.pm.disableDraw();
+                        map.pm.disableGlobalEditMode();
+                        map._container.style.cursor = 'crosshair';
+                        map.on('click', this.onClick, this);
+                        map.on('mousemove', this.onMouseMove, this);
+                        this.btnNode.parentNode.classList.add('active');
+                        this.btnNode.style.backgroundColor = '#e0e0e0';
+                    },
+
+                    disable: function() {
+                        this.active = false; this.p0 = null; this.p1 = null;
+                        if (this.hintLine) { map.removeLayer(this.hintLine); this.hintLine = null; }
+                        if (this.hintRect) { map.removeLayer(this.hintRect); this.hintRect = null; }
+                        map._container.style.cursor = '';
+                        map.off('click', this.onClick, this);
+                        map.off('mousemove', this.onMouseMove, this);
+                        this.btnNode.parentNode.classList.remove('active');
+                        this.btnNode.style.backgroundColor = '';
+                    },
+
+                    onClick: function(e) {
+                        if (!this.p0) {
+                            this.p0 = e.latlng;
+                            this.hintLine = L.polyline([this.p0, e.latlng], {color: '#3388ff', dashArray: '5,5', weight: 2}).addTo(map);
+                        } else if (!this.p1) {
+                            this.p1 = e.latlng;
+                            if (map.project(this.p0).distanceTo(map.project(this.p1)) < 2) {
+                                this.p1 = null; return;
+                            }
+                            if (this.hintLine) map.removeLayer(this.hintLine);
+                            this.hintRect = L.polygon([this.p0, this.p1, this.p1, this.p0], {color: '#3388ff', weight: 2, fillOpacity: 0.2}).addTo(map);
+                        } else {
+                            const rectPts = this.calcRect(e.latlng);
+                            // Important: Geoman interceptors use default Leaflet options if we don't specify them
+                            const layer = L.polygon(rectPts, {color: '#3388ff'});
+                            map.fire('pm:create', { shape: 'Polygon', layer: layer });
+                            this.disable();
+                        }
+                    },
+
+                    onMouseMove: function(e) {
+                        if (this.p0 && !this.p1) {
+                            this.hintLine.setLatLngs([this.p0, e.latlng]);
+                        } else if (this.p0 && this.p1) {
+                            this.hintRect.setLatLngs(this.calcRect(e.latlng));
+                        }
+                    },
+
+                    calcRect: function(mouseLatLng) {
+                        const pt0 = map.project(this.p0);
+                        const pt1 = map.project(this.p1);
+                        const mousePt = map.project(mouseLatLng);
+                        
+                        const dx = pt1.x - pt0.x;
+                        const dy = pt1.y - pt0.y;
+                        const len = Math.sqrt(dx*dx + dy*dy);
+                        const nx = -dy / len;
+                        const ny = dx / len;
+                        
+                        const mx = mousePt.x - pt0.x;
+                        const my = mousePt.y - pt0.y;
+                        const h = mx * nx + my * ny;
+                        
+                        const p2 = L.point(pt1.x + nx * h, pt1.y + ny * h);
+                        const p3 = L.point(pt0.x + nx * h, pt0.y + ny * h);
+                        
+                        return [this.p0, this.p1, map.unproject(p2), map.unproject(p3)];
+                    }
+                };
+
+                L.DomEvent.on(a, 'click', (e) => {
+                    L.DomEvent.preventDefault(e);
+                    if (draw3PR.active) draw3PR.disable();
+                    else draw3PR.enable();
+                });
+
+                // Disable custom mode if native tools are used
+                map.on('pm:drawstart', () => { if (draw3PR.active) draw3PR.disable(); });
+                map.on('pm:globaleditmodetoggled', (e) => { if (e.enabled && draw3PR.active) draw3PR.disable(); });
+                map.on('pm:globaldragmodetoggled', (e) => { if (e.enabled && draw3PR.active) draw3PR.disable(); });
+                map.on('pm:globalremovalmodetoggled', (e) => { if (e.enabled && draw3PR.active) draw3PR.disable(); });
+                map.on('pm:globalrotatemodetoggled', (e) => { if (e.enabled && draw3PR.active) draw3PR.disable(); });
+            }
+        }, 500);
 
         // Toggle Snap Logic
         const snapSelfToggle = document.getElementById('snap-self-toggle');
@@ -656,16 +774,18 @@
         let activeDrawnLayers = L.featureGroup().addTo(map);
 
         map.on('pm:create', (e) => {
+            let layer = e.layer;
+            
             const targetSelect = document.getElementById('save-target-select');
             const targetId = targetSelect ? targetSelect.value : 'new';
 
             if (targetId === 'new') {
-                activeDrawnLayers.addLayer(e.layer);
+                activeDrawnLayers.addLayer(layer);
             } else {
                 const targetShape = savedShapesData.find(s => s.id == targetId);
                 if (targetShape) {
-                    if (e.layer.setStyle) {
-                        e.layer.setStyle({
+                    if (layer.setStyle) {
+                        layer.setStyle({
                             color: targetShape.color,
                             weight: 4,
                             opacity: 1,
@@ -673,15 +793,15 @@
                         });
                     }
                     
-                    if (!e.layer.feature) e.layer.feature = { type: "Feature", properties: {} };
-                    if (!e.layer.feature.properties) e.layer.feature.properties = {};
-                    e.layer.feature.properties.stroke = targetShape.color;
-                    e.layer.feature.properties.fill = targetShape.color;
+                    if (!layer.feature) layer.feature = { type: "Feature", properties: {} };
+                    if (!layer.feature.properties) layer.feature.properties = {};
+                    layer.feature.properties.stroke = targetShape.color;
+                    layer.feature.properties.fill = targetShape.color;
 
-                    targetShape.layerGroup.addLayer(e.layer);
+                    targetShape.layerGroup.addLayer(layer);
                     renderSavedList();
                 } else {
-                    activeDrawnLayers.addLayer(e.layer);
+                    activeDrawnLayers.addLayer(layer);
                 }
             }
         });
