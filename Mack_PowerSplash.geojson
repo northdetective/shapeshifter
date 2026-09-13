@@ -1,0 +1,121 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Track"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -97.067788,
+            32.75701
+          ],
+          [
+            -97.069322,
+            32.756468
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Basin",
+        "stroke": "#0000ff",
+        "fill": "#0000ff"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -97.068666,
+              32.756872
+            ],
+            [
+              -97.068525,
+              32.756584
+            ],
+            [
+              -97.068205,
+              32.756693
+            ],
+            [
+              -97.067921,
+              32.756846
+            ],
+            [
+              -97.06801,
+              32.757043
+            ],
+            [
+              -97.068358,
+              32.756978
+            ],
+            [
+              -97.068666,
+              32.756872
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Station",
+        "stroke": "#ffff00",
+        "fill": "#ffff00"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -97.069184,
+              32.75665
+            ],
+            [
+              -97.069052,
+              32.756373
+            ],
+            [
+              -97.068698,
+              32.756499
+            ],
+            [
+              -97.068813,
+              32.756742
+            ],
+            [
+              -97.068968,
+              32.75669
+            ],
+            [
+              -97.068981,
+              32.756719
+            ],
+            [
+              -97.069184,
+              32.75665
+            ]
+          ]
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "name": "Mack PowerSplash",
+    "color": "#ff2a00",
+    "basemaps": [
+      {
+        "url": "https://imagery.geographic.texas.gov/server/services/NAIP/NAIP22_NCCIR_60cm/ImageServer/WMSServer",
+        "wmsLayer": "",
+        "layerName": "NAIP22 NCCIR 60cm"
+      }
+    ]
+  }
+}
