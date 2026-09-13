@@ -1057,15 +1057,27 @@
                     translateGeoJSON(geojsonData, shapeCenter, mapCenter);
                 }
 
-                const shapeName = document.querySelector(`option[value="${filename}"]`).text;
+                let shapeName = document.querySelector(`option[value="${filename}"]`).text;
+                let shapeColor = '#ff2a00';
+                if (geojsonData && geojsonData.properties) {
+                    if (geojsonData.properties.name) shapeName = geojsonData.properties.name;
+                    if (geojsonData.properties.color) shapeColor = geojsonData.properties.color;
+                } else if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
+                    const p = geojsonData.features[0].properties;
+                    if (p && p.stroke) shapeColor = p.stroke;
+                }
+
                 const importedGroup = L.geoJSON(geojsonData, {
-                    style: { color: '#ff2a00', weight: 4, opacity: 1, fillColor: '#ff2a00' }
+                    style: function(feature) {
+                        const c = (feature.properties && feature.properties.stroke) ? feature.properties.stroke : shapeColor;
+                        return { color: c, weight: 4, opacity: 1, fillColor: c };
+                    }
                 }).addTo(map);
 
                 savedShapesData.push({
                     id: (window.forceDropdownTarget = Date.now()),
                     name: shapeName,
-                    color: '#ff2a00',
+                    color: shapeColor,
                     layerGroup: importedGroup,
                     originalGeoJson: JSON.parse(JSON.stringify(importedGroup.toGeoJSON()))
                 });
@@ -1125,14 +1137,27 @@
                     translateGeoJSON(geojsonData, shapeCenter, mapCenter);
                 }
 
+                let finalShapeName = shapeName;
+                let finalShapeColor = '#ff2a00';
+                if (geojsonData && geojsonData.properties) {
+                    if (geojsonData.properties.name) finalShapeName = geojsonData.properties.name;
+                    if (geojsonData.properties.color) finalShapeColor = geojsonData.properties.color;
+                } else if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
+                    const p = geojsonData.features[0].properties;
+                    if (p && p.stroke) finalShapeColor = p.stroke;
+                }
+
                 const importedGroup = L.geoJSON(geojsonData, {
-                    style: { color: '#ff2a00', weight: 4, opacity: 1, fillColor: '#ff2a00' }
+                    style: function(feature) {
+                        const c = (feature.properties && feature.properties.stroke) ? feature.properties.stroke : finalShapeColor;
+                        return { color: c, weight: 4, opacity: 1, fillColor: c };
+                    }
                 }).addTo(map);
 
                 savedShapesData.push({
                     id: (window.forceDropdownTarget = Date.now()),
-                    name: shapeName,
-                    color: '#ff2a00',
+                    name: finalShapeName,
+                    color: finalShapeColor,
                     layerGroup: importedGroup,
                     originalGeoJson: JSON.parse(JSON.stringify(importedGroup.toGeoJSON()))
                 });
@@ -1166,11 +1191,9 @@
                 activeDrawnLayers.clearLayers();
 
                 const permanentGroup = L.geoJSON(geojsonData, {
-                    style: {
-                        color: '#ff2a00',
-                        weight: 4,
-                        opacity: 1,
-                        fillColor: '#ff2a00'
+                    style: function(feature) {
+                        const c = (feature.properties && feature.properties.stroke) ? feature.properties.stroke : '#ff2a00';
+                        return { color: c, weight: 4, opacity: 1, fillColor: c };
                     }
                 }).addTo(map);
 
@@ -1190,11 +1213,9 @@
                     activeDrawnLayers.clearLayers();
                     
                     const newLayers = L.geoJSON(geojsonData, {
-                        style: {
-                            color: targetShape.color,
-                            weight: 4,
-                            opacity: 1,
-                            fillColor: targetShape.color
+                        style: function(feature) {
+                            const c = (feature.properties && feature.properties.stroke) ? feature.properties.stroke : targetShape.color;
+                            return { color: c, weight: 4, opacity: 1, fillColor: c };
                         }
                     });
 
@@ -1401,7 +1422,10 @@
 
             // Re-instantiate from original GeoJSON
             const originalLayer = L.geoJSON(shape.originalGeoJson, {
-                style: { color: shape.color, weight: 4, opacity: 1, fillColor: shape.color }
+                style: function(feature) {
+                    const c = (feature.properties && feature.properties.stroke) ? feature.properties.stroke : shape.color;
+                    return { color: c, weight: 4, opacity: 1, fillColor: c };
+                }
             });
 
             // Add back to the layer group
@@ -1434,11 +1458,9 @@
             const newName = shape.name + ' (Copy)';
 
             const newGroup = L.geoJSON(currentGeoJson, {
-                style: {
-                    color: shape.color,
-                    weight: 4,
-                    opacity: 1,
-                    fillColor: shape.color
+                style: function(feature) {
+                    const c = (feature.properties && feature.properties.stroke) ? feature.properties.stroke : shape.color;
+                    return { color: c, weight: 4, opacity: 1, fillColor: c };
                 }
             }).addTo(map);
 
@@ -1471,6 +1493,11 @@
             if (!shape) return;
 
             const latestGeoJson = shape.layerGroup.toGeoJSON();
+            latestGeoJson.properties = {
+                name: shape.name,
+                color: shape.color
+            };
+            
             let fileContent = '';
             let mimeType = '';
             let fileExtension = '';
