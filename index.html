@@ -472,11 +472,12 @@
         const layerControl = L.control.layers(baseMaps, null, {position: 'bottomright'}).addTo(map);
 
         // Custom Layer Logic
+        let customBasemaps = [];
         let customLayerCount = 1;
-        document.getElementById('add-custom-layer-btn').addEventListener('click', async () => {
-            const url = document.getElementById('custom-layer-url').value.trim();
-            const wmsLayer = document.getElementById('custom-layer-name').value.trim();
-            if (!url) return;
+        
+        async function addCustomBasemap(url, wmsLayer, silent = false) {
+            // Check if already added
+            if (customBasemaps.some(b => b.url === url && b.wmsLayer === wmsLayer)) return;
 
             let layerName = wmsLayer || '';
             if (!layerName) {
@@ -571,8 +572,19 @@
 
             layerControl.addBaseLayer(newLayer, layerName);
             newLayer.addTo(map);
+            
+            customBasemaps.push({ url, wmsLayer, layerName });
 
-            alert(`Added ${layerName} to map and layer controls!`);
+            if (!silent) alert(`Added ${layerName} to map and layer controls!`);
+        }
+
+        document.getElementById('add-custom-layer-btn').addEventListener('click', async () => {
+            const url = document.getElementById('custom-layer-url').value.trim();
+            const wmsLayer = document.getElementById('custom-layer-name').value.trim();
+            if (!url) return;
+
+            await addCustomBasemap(url, wmsLayer, false);
+
             document.getElementById('custom-layer-url').value = '';
             document.getElementById('custom-layer-name').value = '';
         });
@@ -1062,6 +1074,11 @@
                 if (geojsonData && geojsonData.properties) {
                     if (geojsonData.properties.name) shapeName = geojsonData.properties.name;
                     if (geojsonData.properties.color) shapeColor = geojsonData.properties.color;
+                    if (geojsonData.properties.basemaps && Array.isArray(geojsonData.properties.basemaps)) {
+                        for (const b of geojsonData.properties.basemaps) {
+                            if (b && typeof b.url === 'string') await addCustomBasemap(b.url, b.wmsLayer, true);
+                        }
+                    }
                 } else if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
                     const p = geojsonData.features[0].properties;
                     if (p && p.stroke) shapeColor = p.stroke;
@@ -1142,6 +1159,11 @@
                 if (geojsonData && geojsonData.properties) {
                     if (geojsonData.properties.name) finalShapeName = geojsonData.properties.name;
                     if (geojsonData.properties.color) finalShapeColor = geojsonData.properties.color;
+                    if (geojsonData.properties.basemaps && Array.isArray(geojsonData.properties.basemaps)) {
+                        for (const b of geojsonData.properties.basemaps) {
+                            if (b && typeof b.url === 'string') await addCustomBasemap(b.url, b.wmsLayer, true);
+                        }
+                    }
                 } else if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
                     const p = geojsonData.features[0].properties;
                     if (p && p.stroke) finalShapeColor = p.stroke;
@@ -1495,7 +1517,8 @@
             const latestGeoJson = shape.layerGroup.toGeoJSON();
             latestGeoJson.properties = {
                 name: shape.name,
-                color: shape.color
+                color: shape.color,
+                basemaps: customBasemaps
             };
             
             let fileContent = '';
