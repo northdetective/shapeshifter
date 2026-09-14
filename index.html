@@ -684,6 +684,7 @@
                     b.layer.editing.enable();
                 }
                 b.layer.select();
+                if (b.layer.editing && b.layer.editing.setMode) b.layer.editing.setMode('drag');
             }
             renderCustomBasemapsList();
         };
@@ -859,7 +860,6 @@
             const imgOverlay = L.distortableImageOverlay(url, {
                 corners: imageBounds,
                 interactive: true,
-                mode: 'drag',
                 actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
             });
 
@@ -877,6 +877,7 @@
                     }
                     if (imgOverlay.editing && imgOverlay.editing.enabled()) {
                         imgOverlay.select();
+                        if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
                     }
                     renderCustomBasemapsList();
                 }, 50);
@@ -1658,7 +1659,6 @@
                     const imgOverlay = L.distortableImageOverlay(overlay.url, {
                         corners: imageBounds,
                         interactive: true,
-                        mode: 'drag',
                         actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
                     });
 
@@ -1676,6 +1676,7 @@
                             }
                             if (imgOverlay.editing && imgOverlay.editing.enabled()) {
                                 imgOverlay.select();
+                                if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
                             }
                             renderCustomBasemapsList();
                         }, 50);
