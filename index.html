@@ -615,6 +615,8 @@
             let html = '<strong>Added Layers:</strong><div style="margin-top: 5px;">';
             customBasemaps.forEach((b, index) => {
                 const isGeoreferenced = (b.layer && typeof b.layer.getCorners === 'function');
+                const isSelected = isGeoreferenced && typeof b.layer.isSelected === 'function' && b.layer.isSelected();
+                
                 html += `
                     <div style="display:flex; flex-wrap: wrap; justify-content:space-between; align-items:center; margin-bottom:5px; background: #fff; padding: 5px; border: 1px solid #eee; border-radius: 4px;">
                         <div style="width: 100%; display: flex; align-items: center; margin-bottom: 5px;">
@@ -623,7 +625,7 @@
                                    style="flex-grow: 1; border: 1px solid #ccc; border-radius: 3px; padding: 4px; font-size: 12px; margin-right: 5px;" 
                                    title="Rename layer">
                             ${isGeoreferenced ? `
-                                <button onclick="toggleLockBasemap(${index})" style="background: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 3px; padding: 4px 8px; margin-right: 5px; cursor: pointer; font-size: 12px;" title="Lock/Unlock Editing">🔒</button>
+                                <button onclick="toggleLockBasemap(${index})" style="background: ${isSelected ? '#d4edda' : '#f8f9fa'}; color: #333; border: 1px solid #ccc; border-radius: 3px; padding: 4px 8px; margin-right: 5px; cursor: pointer; font-size: 12px;" title="${isSelected ? 'Finish Editing' : 'Edit Placement'}">${isSelected ? '✅ Done' : '✏️ Edit'}</button>
                                 <button onclick="exportGeoTIFF(${index})" style="background: #0056b3; color: white; border: none; border-radius: 3px; padding: 4px 8px; margin-right: 5px; cursor: pointer; font-size: 12px;" title="Export as GeoTIFF">TIFF</button>
                             ` : ''}
                             <button onclick="removeCustomBasemap(${index})" style="background: #ff4d4f; color: white; border: none; border-radius: 3px; padding: 4px 8px; cursor: pointer; font-size: 12px;" title="Remove layer">X</button>
@@ -655,6 +657,9 @@
             if (!b || !b.layer) return;
             if (typeof b.layer.bringToFront === 'function') {
                 b.layer.bringToFront();
+                customBasemaps.splice(index, 1);
+                customBasemaps.unshift(b);
+                renderCustomBasemapsList();
             }
         };
 
@@ -663,17 +668,24 @@
             if (!b || !b.layer) return;
             if (typeof b.layer.bringToBack === 'function') {
                 b.layer.bringToBack();
+                customBasemaps.splice(index, 1);
+                customBasemaps.push(b);
+                renderCustomBasemapsList();
             }
         };
 
         window.toggleLockBasemap = function(index) {
             const b = customBasemaps[index];
-            if (!b || !b.layer || !b.layer.editing) return;
-            if (b.layer.editing.enabled()) {
-                b.layer.editing.disable();
+            if (!b || !b.layer || typeof b.layer.select !== 'function') return;
+            if (b.layer.isSelected && b.layer.isSelected()) {
+                b.layer.deselect();
             } else {
-                b.layer.editing.enable();
+                if (b.layer.editing && !b.layer.editing.enabled()) {
+                    b.layer.editing.enable();
+                }
+                b.layer.select();
             }
+            renderCustomBasemapsList();
         };
 
         window.exportGeoTIFF = async function(index) {
@@ -846,19 +858,31 @@
 
             const imgOverlay = L.distortableImageOverlay(url, {
                 corners: imageBounds,
+                interactive: true,
+                mode: 'drag',
                 actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
             });
 
             imgOverlay.on('load', function() {
-                L.DomEvent.on(imgOverlay.getElement(), 'dblclick', function() {
-                    if (imgOverlay.editing.enabled()) {
-                        imgOverlay.editing.disable();
-                    } else {
-                        imgOverlay.editing.enable();
+                setTimeout(() => {
+                    const el = imgOverlay.getElement();
+                    if (el) {
+                        el.style.pointerEvents = 'auto';
+                        L.DomUtil.addClass(el, 'leaflet-interactive');
+                        L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
+                        L.DomEvent.on(el, 'click', function(e) {
+                            L.DomEvent.stopPropagation(e);
+                            if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
+                        });
                     }
-                });
-                imgOverlay.editing.enable();
+                    if (imgOverlay.editing && imgOverlay.editing.enabled()) {
+                        imgOverlay.select();
+                    }
+                    renderCustomBasemapsList();
+                }, 50);
             });
+            imgOverlay.on('select', renderCustomBasemapsList);
+            imgOverlay.on('deselect', renderCustomBasemapsList);
 
             imgOverlay.addTo(map);
 
@@ -1633,16 +1657,31 @@
 
                     const imgOverlay = L.distortableImageOverlay(overlay.url, {
                         corners: imageBounds,
+                        interactive: true,
+                        mode: 'drag',
                         actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
                     });
 
                     imgOverlay.on('load', function() {
-                        L.DomEvent.on(imgOverlay.getElement(), 'dblclick', function() {
-                            if (imgOverlay.editing.enabled()) imgOverlay.editing.disable();
-                            else imgOverlay.editing.enable();
-                        });
-                        imgOverlay.editing.enable();
+                        setTimeout(() => {
+                            const el = imgOverlay.getElement();
+                            if (el) {
+                                el.style.pointerEvents = 'auto';
+                                L.DomUtil.addClass(el, 'leaflet-interactive');
+                                L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
+                                L.DomEvent.on(el, 'click', function(e) {
+                                    L.DomEvent.stopPropagation(e);
+                                    if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
+                                });
+                            }
+                            if (imgOverlay.editing && imgOverlay.editing.enabled()) {
+                                imgOverlay.select();
+                            }
+                            renderCustomBasemapsList();
+                        }, 50);
                     });
+                    imgOverlay.on('select', renderCustomBasemapsList);
+                    imgOverlay.on('deselect', renderCustomBasemapsList);
                     
                     imgOverlay.addTo(map);
 
