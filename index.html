@@ -847,7 +847,7 @@
             const imgOverlay = L.distortableImageOverlay(url, {
                 corners: imageBounds,
                 actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
-            }).addTo(map);
+            });
 
             imgOverlay.on('load', function() {
                 L.DomEvent.on(imgOverlay.getElement(), 'dblclick', function() {
@@ -859,6 +859,8 @@
                 });
                 imgOverlay.editing.enable();
             });
+
+            imgOverlay.addTo(map);
 
             // Add to Custom Basemaps List for management
             const layerName = "Aligned: " + file.name;
@@ -1609,6 +1611,21 @@
                         ];
                     }
                     
+                    if (overlay.type === 'box' && overlay.rotation !== 0) {
+                        const rad = overlay.rotation * Math.PI / 180;
+                        const center = L.latLngBounds(imageBounds).getCenter();
+                        const cp = map.project(center, 18);
+                        
+                        imageBounds = imageBounds.map(ll => {
+                            const p = map.project(ll, 18);
+                            const dx = p.x - cp.x;
+                            const dy = p.y - cp.y;
+                            const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
+                            const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
+                            return map.unproject([cp.x + rx, cp.y + ry], 18);
+                        });
+                    }
+                    
                     if (!L.distortableImageOverlay) {
                         alert("Georeferencing plugin not fully loaded, cannot render image overlay.");
                         return;
@@ -1617,23 +1634,7 @@
                     const imgOverlay = L.distortableImageOverlay(overlay.url, {
                         corners: imageBounds,
                         actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
-                    }).addTo(map);
-
-                    if (overlay.type === 'box' && overlay.rotation !== 0) {
-                        const rad = overlay.rotation * Math.PI / 180;
-                        const center = L.latLngBounds(imageBounds).getCenter();
-                        const cp = map.project(center, 18);
-                        
-                        const rotatedCorners = imageBounds.map(ll => {
-                            const p = map.project(ll, 18);
-                            const dx = p.x - cp.x;
-                            const dy = p.y - cp.y;
-                            const rx = dx * Math.cos(rad) - dy * Math.sin(rad);
-                            const ry = dx * Math.sin(rad) + dy * Math.cos(rad);
-                            return map.unproject([cp.x + rx, cp.y + ry], 18);
-                        });
-                        imgOverlay.setCorners(rotatedCorners);
-                    }
+                    });
 
                     imgOverlay.on('load', function() {
                         L.DomEvent.on(imgOverlay.getElement(), 'dblclick', function() {
@@ -1642,6 +1643,8 @@
                         });
                         imgOverlay.editing.enable();
                     });
+                    
+                    imgOverlay.addTo(map);
 
                     // Add to Custom Basemaps list so the user can easily toggle/remove it
                     const layerName = "KML Overlay: " + shapeName;
