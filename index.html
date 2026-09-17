@@ -832,6 +832,57 @@
 
         // Image Georeferencing Logic
         document.getElementById('import-image-georef-btn').addEventListener('click', () => document.getElementById('image-georef-import').click());
+        
+        // Resurrect Georeferenced Image from GeoJSON import
+        window.resurrectGeoreferencedImage = async function(b) {
+            if (customBasemaps.some(existing => existing.id === b.id)) return;
+            
+            if (!L.distortableImageOverlay) {
+                console.warn("Georeferencing plugin not loaded, cannot resurrect image.");
+                return;
+            }
+
+            const corners = b.corners.map(c => L.latLng(c.lat, c.lng));
+            const imgOverlay = L.distortableImageOverlay(b.imageData, {
+                corners: corners,
+                interactive: true,
+                actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
+            });
+
+            if (b.opacity !== undefined) {
+                imgOverlay.setOpacity(b.opacity);
+            }
+
+            imgOverlay.on('load', function() {
+                setTimeout(() => {
+                    const el = imgOverlay.getElement();
+                    if (el) {
+                        el.style.pointerEvents = 'auto';
+                        L.DomUtil.addClass(el, 'leaflet-interactive');
+                        L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
+                        L.DomEvent.on(el, 'click', function(e) {
+                            L.DomEvent.stopPropagation(e);
+                            if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
+                        });
+                    }
+                    if (imgOverlay.editing && imgOverlay.editing.enabled()) {
+                        imgOverlay.select();
+                        if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
+                    }
+                    renderCustomBasemapsList();
+                }, 50);
+            });
+            imgOverlay.on('select', renderCustomBasemapsList);
+            imgOverlay.on('deselect', renderCustomBasemapsList);
+
+            imgOverlay.addTo(map);
+
+            const layerName = b.layerName || "Imported Image";
+            const id = b.id || 'custom_layer_' + Date.now();
+            customBasemaps.push({ id, url: 'local_image', wmsLayer: '', layerName, layer: imgOverlay });
+            renderCustomBasemapsList();
+        };
+
         document.getElementById('image-georef-import').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -1474,7 +1525,15 @@
                     if (geojsonData.properties.color) shapeColor = geojsonData.properties.color;
                     if (geojsonData.properties.basemaps && Array.isArray(geojsonData.properties.basemaps)) {
                         for (const b of geojsonData.properties.basemaps) {
-                            if (b && typeof b.url === 'string') await addCustomBasemap(b.url, b.wmsLayer, true);
+                            if (b && typeof b.url === 'string') {
+                                if (b.url === 'local_image' && b.imageData && b.corners) {
+                                    if (typeof resurrectGeoreferencedImage === 'function') {
+                                        await resurrectGeoreferencedImage(b);
+                                    }
+                                } else {
+                                    await addCustomBasemap(b.url, b.wmsLayer, true);
+                                }
+                            }
                         }
                     }
                 } else if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
@@ -1735,7 +1794,15 @@
                     if (geojsonData.properties.color) finalShapeColor = geojsonData.properties.color;
                     if (geojsonData.properties.basemaps && Array.isArray(geojsonData.properties.basemaps)) {
                         for (const b of geojsonData.properties.basemaps) {
-                            if (b && typeof b.url === 'string') await addCustomBasemap(b.url, b.wmsLayer, true);
+                            if (b && typeof b.url === 'string') {
+                                if (b.url === 'local_image' && b.imageData && b.corners) {
+                                    if (typeof resurrectGeoreferencedImage === 'function') {
+                                        await resurrectGeoreferencedImage(b);
+                                    }
+                                } else {
+                                    await addCustomBasemap(b.url, b.wmsLayer, true);
+                                }
+                            }
                         }
                     }
                 } else if (geojsonData && geojsonData.features && geojsonData.features.length > 0) {
@@ -2085,15 +2152,57 @@
         };
 
         // 11. Export Logic 
-        window.exportData = function(id, format) {
+        window.exportData = async function(id, format) {
             const shape = savedShapesData.find(s => s.id === id);
             if (!shape) return;
+
+            const serializedBasemaps = [];
+            for (let i = 0; i < customBasemaps.length; i++) {
+                const b = customBasemaps[i];
+                const serialized = {
+                    id: b.id,
+                    url: b.url,
+                    wmsLayer: b.wmsLayer,
+                    layerName: b.layerName,
+                    opacity: (b.layer && b.layer.options && b.layer.options.opacity !== undefined) ? b.layer.options.opacity : 1
+                };
+
+                if (b.layer && typeof b.layer.getCorners === 'function') {
+                    const corners = b.layer.getCorners();
+                    serialized.corners = corners.map(c => ({ lat: c.lat, lng: c.lng }));
+                    
+                    // Bundle local image as base64
+                    const imgUrl = b.layer._url || (b.layer.getElement ? b.layer.getElement().src : null);
+                    if (imgUrl) {
+                        try {
+                            const dataUrl = await new Promise((resolve, reject) => {
+                                const img = new Image();
+                                img.crossOrigin = "Anonymous";
+                                img.onload = () => {
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = img.width;
+                                    canvas.height = img.height;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx.drawImage(img, 0, 0);
+                                    resolve(canvas.toDataURL('image/png'));
+                                };
+                                img.onerror = reject;
+                                img.src = imgUrl;
+                            });
+                            serialized.imageData = dataUrl;
+                        } catch (e) {
+                            console.warn("Failed to serialize image data for", b.layerName);
+                        }
+                    }
+                }
+                serializedBasemaps.push(serialized);
+            }
 
             const latestGeoJson = shape.layerGroup.toGeoJSON();
             latestGeoJson.properties = {
                 name: shape.name,
                 color: shape.color,
-                basemaps: customBasemaps
+                basemaps: serializedBasemaps
             };
             
             let fileContent = '';
@@ -2101,7 +2210,12 @@
             let fileExtension = '';
 
             if (format === 'geojson') {
-                fileContent = JSON.stringify(latestGeoJson, null, 2);
+                try {
+                    fileContent = JSON.stringify(latestGeoJson, null, 2);
+                } catch(e) {
+                    alert("Error creating GeoJSON: " + e.message);
+                    return;
+                }
                 mimeType = 'application/geo+json';
                 fileExtension = 'geojson';
             } else if (format === 'gpx') {
