@@ -628,6 +628,7 @@
                             ${isGeoreferenced ? `
                                 <button onclick="toggleLockBasemap(${index})" style="background: ${isSelected ? '#d4edda' : '#f8f9fa'}; color: #333; border: 1px solid #ccc; border-radius: 3px; padding: 4px 8px; margin-right: 5px; cursor: pointer; font-size: 12px;" title="${isSelected ? 'Finish Editing' : 'Edit Placement'}">${isSelected ? '✅ Done' : '✏️ Edit'}</button>
                                 <button onclick="exportGeoTIFF(${index})" style="background: #0056b3; color: white; border: none; border-radius: 3px; padding: 4px 8px; margin-right: 5px; cursor: pointer; font-size: 12px;" title="Export as GeoTIFF">TIFF</button>
+                                <button onclick="exportBasemapKMZ(${index})" style="background: #28a745; color: white; border: none; border-radius: 3px; padding: 4px 8px; margin-right: 5px; cursor: pointer; font-size: 12px;" title="Export as KMZ">KMZ</button>
                             ` : ''}
                             <button onclick="removeCustomBasemap(${index})" style="background: #ff4d4f; color: white; border: none; border-radius: 3px; padding: 4px 8px; cursor: pointer; font-size: 12px;" title="Remove layer">X</button>
                         </div>
@@ -733,19 +734,18 @@
                 // Get corners: NW, NE, SW, SE
                 const corners = b.layer.getCorners();
                 
+                // Google Earth requires standard Orthorectified metadata for GeoTIFFs (it rejects 4 tiepoints without a matrix)
                 const metadata = {
                     width: canvas.width,
                     height: canvas.height,
                     GeographicTypeGeoKey: 4326,
                     GeogCitationGeoKey: 'WGS 84',
-                    ModelTiepoint: [
-                        0, 0, 0, corners[0].lng, corners[0].lat, 0,
-                        canvas.width, 0, 0, corners[1].lng, corners[1].lat, 0,
-                        0, canvas.height, 0, corners[2].lng, corners[2].lat, 0,
-                        canvas.width, canvas.height, 0, corners[3].lng, corners[3].lat, 0
-                    ],
-                    PhotometricInterpretation: 2,
-                    SamplesPerPixel: 4,
+                    ModelTiepoint: [ 0, 0, 0, corners[0].lng, corners[0].lat, 0 ],
+                    ModelPixelScale: [ 
+                        Math.abs((corners[1].lng - corners[0].lng) / canvas.width), 
+                        Math.abs((corners[0].lat - corners[2].lat) / canvas.height), 
+                        0 
+                    ]
                 };
                 
                 const buffer = await window.GeoTIFF.writeArrayBuffer(imgData.data, metadata);
@@ -761,6 +761,84 @@
             } catch(e) {
                 console.error(e);
                 alert("Error exporting GeoTIFF: " + e.message);
+            }
+        };
+
+        window.exportBasemapKMZ = async function(index) {
+            const b = customBasemaps[index];
+            if (!b || !b.layer || typeof b.layer.getCorners !== 'function') {
+                alert("This layer cannot be exported as a KMZ (must be a georeferenced image).");
+                return;
+            }
+            
+            try {
+                if (!window.JSZip) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+
+                let imgUrl = b.url;
+                if ((imgUrl === 'local_image' || imgUrl.startsWith('blob:')) && b.layer._image) {
+                    imgUrl = b.layer._image.src;
+                }
+
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.src = imgUrl;
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = () => reject(new Error("Failed to load image for export"));
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                
+                const dataUrl = canvas.toDataURL('image/png');
+                const base64Data = dataUrl.split(',')[1];
+                
+                const corners = b.layer.getCorners(); // NW, NE, SW, SE
+                
+                const kmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2">
+  <Folder>
+    <name>${b.layerName}</name>
+    <GroundOverlay>
+      <name>${b.layerName}</name>
+      <Icon>
+        <href>image.png</href>
+      </Icon>
+      <gx:LatLonQuad>
+        <coordinates>
+          ${corners[2].lng},${corners[2].lat} ${corners[3].lng},${corners[3].lat} ${corners[1].lng},${corners[1].lat} ${corners[0].lng},${corners[0].lat}
+        </coordinates>
+      </gx:LatLonQuad>
+    </GroundOverlay>
+  </Folder>
+</kml>`;
+
+                const zip = new JSZip();
+                zip.file("doc.kml", kmlContent);
+                zip.file("image.png", base64Data, {base64: true});
+
+                const content = await zip.generateAsync({type:"blob"});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(content);
+                a.download = `${b.layerName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.kmz`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            } catch(e) {
+                console.error(e);
+                alert("Error exporting KMZ: " + e.message);
             }
         };
 
