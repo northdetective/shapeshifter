@@ -745,7 +745,9 @@
                         Math.abs((corners[1].lng - corners[0].lng) / canvas.width), 
                         Math.abs((corners[0].lat - corners[2].lat) / canvas.height), 
                         0 
-                    ]
+                    ],
+                    PhotometricInterpretation: 2,
+                    SamplesPerPixel: 4
                 };
                 
                 const buffer = await window.GeoTIFF.writeArrayBuffer(imgData.data, metadata);
