@@ -1616,7 +1616,6 @@
                 let shapeName = document.querySelector(`option[value="${filename}"]`).text;
                 let shapeColor = '#ff2a00';
                 if (geojsonData && geojsonData.properties) {
-                    if (geojsonData.properties.name) shapeName = geojsonData.properties.name;
                     if (geojsonData.properties.color) shapeColor = geojsonData.properties.color;
                     if (geojsonData.properties.basemaps && Array.isArray(geojsonData.properties.basemaps)) {
                         for (const b of geojsonData.properties.basemaps) {
