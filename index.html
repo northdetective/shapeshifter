@@ -889,62 +889,76 @@
             if (!file) return;
 
             const url = URL.createObjectURL(file);
-            const bounds = map.getBounds();
-            const center = bounds.getCenter();
-            // Create a small bounding box in the center of the screen
-            const latDiff = (bounds.getNorth() - bounds.getSouth()) * 0.2;
-            const lngDiff = (bounds.getEast() - bounds.getWest()) * 0.2;
             
-            // L.DistortableImage needs an array of 4 LatLng points for corners: [NW, NE, SW, SE]
-            const imageBounds = [
-                L.latLng(center.lat + latDiff, center.lng - lngDiff),
-                L.latLng(center.lat + latDiff, center.lng + lngDiff),
-                L.latLng(center.lat - latDiff, center.lng - lngDiff),
-                L.latLng(center.lat - latDiff, center.lng + lngDiff)
-            ];
-            
-            // Wait for plugin to load
-            if (!L.distortableImageOverlay) {
-                alert("Georeferencing plugin not fully loaded yet. Please wait a second and try again.");
-                return;
-            }
+            const img = new Image();
+            img.onload = function() {
+                const ratio = img.width / img.height;
+                const bounds = map.getBounds();
+                const center = bounds.getCenter();
+                const zoom = map.getZoom();
+                
+                const centerPt = map.project(center, zoom);
+                const mapSize = map.getSize();
+                
+                // Scale to 40% of the map's pixel height
+                const targetHeightPixels = mapSize.y * 0.4;
+                const targetWidthPixels = targetHeightPixels * ratio;
+                
+                const nwPt = L.point(centerPt.x - targetWidthPixels/2, centerPt.y - targetHeightPixels/2);
+                const nePt = L.point(centerPt.x + targetWidthPixels/2, centerPt.y - targetHeightPixels/2);
+                const swPt = L.point(centerPt.x - targetWidthPixels/2, centerPt.y + targetHeightPixels/2);
+                const sePt = L.point(centerPt.x + targetWidthPixels/2, centerPt.y + targetHeightPixels/2);
 
-            const imgOverlay = L.distortableImageOverlay(url, {
-                corners: imageBounds,
-                interactive: true,
-                actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
-            });
+                const imageBounds = [
+                    map.unproject(nwPt, zoom), // NW
+                    map.unproject(nePt, zoom), // NE
+                    map.unproject(swPt, zoom), // SW
+                    map.unproject(sePt, zoom)  // SE
+                ];
+                
+                // Wait for plugin to load
+                if (!L.distortableImageOverlay) {
+                    alert("Georeferencing plugin not fully loaded yet. Please wait a second and try again.");
+                    return;
+                }
 
-            imgOverlay.on('load', function() {
-                setTimeout(() => {
-                    const el = imgOverlay.getElement();
-                    if (el) {
-                        el.style.pointerEvents = 'auto';
-                        L.DomUtil.addClass(el, 'leaflet-interactive');
-                        L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
-                        L.DomEvent.on(el, 'click', function(e) {
-                            L.DomEvent.stopPropagation(e);
-                            if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
-                        });
-                    }
-                    if (imgOverlay.editing && imgOverlay.editing.enabled()) {
-                        imgOverlay.select();
-                        if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
-                    }
-                    renderCustomBasemapsList();
-                }, 50);
-            });
-            imgOverlay.on('select', renderCustomBasemapsList);
-            imgOverlay.on('deselect', renderCustomBasemapsList);
+                const imgOverlay = L.distortableImageOverlay(url, {
+                    corners: imageBounds,
+                    interactive: true,
+                    actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
+                });
 
-            imgOverlay.addTo(map);
+                imgOverlay.on('load', function() {
+                    setTimeout(() => {
+                        const el = imgOverlay.getElement();
+                        if (el) {
+                            el.style.pointerEvents = 'auto';
+                            L.DomUtil.addClass(el, 'leaflet-interactive');
+                            L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
+                            L.DomEvent.on(el, 'click', function(evt) {
+                                L.DomEvent.stopPropagation(evt);
+                                if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
+                            });
+                        }
+                        if (imgOverlay.editing && imgOverlay.editing.enabled()) {
+                            imgOverlay.select();
+                            if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
+                        }
+                        renderCustomBasemapsList();
+                    }, 50);
+                });
+                imgOverlay.on('select', renderCustomBasemapsList);
+                imgOverlay.on('deselect', renderCustomBasemapsList);
 
-            // Add to Custom Basemaps List for management
-            const layerName = "Aligned: " + file.name;
-            const id = 'custom_layer_' + Date.now();
-            customBasemaps.push({ id, url: 'local_image', wmsLayer: '', layerName, layer: imgOverlay });
-            renderCustomBasemapsList();
-            
+                imgOverlay.addTo(map);
+
+                // Add to Custom Basemaps List for management
+                const layerName = "Aligned: " + file.name;
+                const id = 'custom_layer_' + Date.now();
+                customBasemaps.push({ id, url: 'local_image', wmsLayer: '', layerName, layer: imgOverlay });
+                renderCustomBasemapsList();
+            };
+            img.src = url;
             e.target.value = '';
         });
 
