@@ -241,6 +241,7 @@
 					<option value="Oscar's_Wacky_Taxi.geojson">Oscar's Wacky Taxi (Sesame Place)</option>
 					<option value="Roar-o-Saurus.geojson">Roar-o-Saurus (Story Land)</option>
 					<option value="Twister.geojson">Twister (Gröna Lund)</option>
+                    <option value="Wildcat.geojson">Wildcat (Bertrand Island)</option>
 					<option value="Wooden_Warrior.geojson">Wooden Warrior (Quassy)</option>
                 </optgroup>
             </select>
@@ -939,24 +940,26 @@
             imgOverlay.on('load', function() {
                 setTimeout(() => {
                     const el = imgOverlay.getElement();
-                    if (el) {
-                        el.style.pointerEvents = 'auto';
-                        L.DomUtil.addClass(el, 'leaflet-interactive');
-                        L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
-                        L.DomEvent.on(el, 'click', function(e) {
-                            L.DomEvent.stopPropagation(e);
-                            if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
-                        });
-                    }
                     if (imgOverlay.editing && imgOverlay.editing.enabled()) {
                         imgOverlay.select();
                         if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
+                        if (el) el.style.pointerEvents = 'auto';
+                    } else {
+                        if (el) el.style.pointerEvents = 'none';
                     }
                     renderCustomBasemapsList();
                 }, 50);
             });
-            imgOverlay.on('select', renderCustomBasemapsList);
-            imgOverlay.on('deselect', renderCustomBasemapsList);
+            imgOverlay.on('select', function() {
+                const el = imgOverlay.getElement();
+                if (el) el.style.pointerEvents = 'auto';
+                renderCustomBasemapsList();
+            });
+            imgOverlay.on('deselect', function() {
+                const el = imgOverlay.getElement();
+                if (el) el.style.pointerEvents = 'none';
+                renderCustomBasemapsList();
+            });
 
             imgOverlay.addTo(map);
 
@@ -1013,24 +1016,26 @@
                 imgOverlay.on('load', function() {
                     setTimeout(() => {
                         const el = imgOverlay.getElement();
-                        if (el) {
-                            el.style.pointerEvents = 'auto';
-                            L.DomUtil.addClass(el, 'leaflet-interactive');
-                            L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
-                            L.DomEvent.on(el, 'click', function(evt) {
-                                L.DomEvent.stopPropagation(evt);
-                                if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
-                            });
-                        }
                         if (imgOverlay.editing && imgOverlay.editing.enabled()) {
                             imgOverlay.select();
                             if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
+                            if (el) el.style.pointerEvents = 'auto';
+                        } else {
+                            if (el) el.style.pointerEvents = 'none';
                         }
                         renderCustomBasemapsList();
                     }, 50);
                 });
-                imgOverlay.on('select', renderCustomBasemapsList);
-                imgOverlay.on('deselect', renderCustomBasemapsList);
+                imgOverlay.on('select', function() {
+                    const el = imgOverlay.getElement();
+                    if (el) el.style.pointerEvents = 'auto';
+                    renderCustomBasemapsList();
+                });
+                imgOverlay.on('deselect', function() {
+                    const el = imgOverlay.getElement();
+                    if (el) el.style.pointerEvents = 'none';
+                    renderCustomBasemapsList();
+                });
 
                 imgOverlay.addTo(map);
 
@@ -1820,24 +1825,26 @@
                     imgOverlay.on('load', function() {
                         setTimeout(() => {
                             const el = imgOverlay.getElement();
-                            if (el) {
-                                el.style.pointerEvents = 'auto';
-                                L.DomUtil.addClass(el, 'leaflet-interactive');
-                                L.DomEvent.off(el, 'click', imgOverlay.select, imgOverlay);
-                                L.DomEvent.on(el, 'click', function(e) {
-                                    L.DomEvent.stopPropagation(e);
-                                    if (imgOverlay.editing && imgOverlay.editing.enabled()) imgOverlay.select();
-                                });
-                            }
                             if (imgOverlay.editing && imgOverlay.editing.enabled()) {
                                 imgOverlay.select();
                                 if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
+                                if (el) el.style.pointerEvents = 'auto';
+                            } else {
+                                if (el) el.style.pointerEvents = 'none';
                             }
                             renderCustomBasemapsList();
                         }, 50);
                     });
-                    imgOverlay.on('select', renderCustomBasemapsList);
-                    imgOverlay.on('deselect', renderCustomBasemapsList);
+                    imgOverlay.on('select', function() {
+                        const el = imgOverlay.getElement();
+                        if (el) el.style.pointerEvents = 'auto';
+                        renderCustomBasemapsList();
+                    });
+                    imgOverlay.on('deselect', function() {
+                        const el = imgOverlay.getElement();
+                        if (el) el.style.pointerEvents = 'none';
+                        renderCustomBasemapsList();
+                    });
                     
                     imgOverlay.addTo(map);
 
