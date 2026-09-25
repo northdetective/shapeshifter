@@ -249,10 +249,13 @@
 				
                 <optgroup label="Other - Wood">
                     <option value="Bobcat.geojson">Bobcat (Great Escape)</option>
+                    <option value="Kentucky_Flyer.geojson">Kentucky Flyer (Kentucky Kingdom)</option>
 					<option value="Oscar's_Wacky_Taxi.geojson">Oscar's Wacky Taxi (Sesame Place)</option>
 					<option value="Roar-o-Saurus.geojson">Roar-o-Saurus (Story Land)</option>
+                    <option value="Timber.geojson">Timber (Walibi Rhône-Alpes)</option>
 					<option value="Twister.geojson">Twister (Gröna Lund)</option>
                     <option value="Wildcat.geojson">Wildcat (Bertrand Island)</option>
+                    <option value="Wood_Express.geojson">Wood Express (Parc Saint Paul)</option>
 					<option value="Wooden_Warrior.geojson">Wooden Warrior (Quassy)</option>
                 </optgroup>
             </select>
@@ -607,6 +610,16 @@
                     attribution: 'Custom Tile Layer',
                     maxNativeZoom: 19,
                     maxZoom: 24
+                });
+            }
+
+            if (newLayer && typeof newLayer.on === 'function') {
+                let errorAlerted = false;
+                newLayer.on('tileerror', function(error) {
+                    if (!errorAlerted && !silent) {
+                        errorAlerted = true;
+                        alert("Warning: Failed to load tiles for this layer. Ensure the URL is a valid, CORS-enabled WMS, ImageServer, or XYZ Tile endpoint, and that the requested layer name is correct.");
+                    }
                 });
             }
 
@@ -1206,6 +1219,27 @@
         snapSelfToggle.addEventListener('change', updateSnap);
         snapOtherToggle.addEventListener('change', updateSnap);
         updateSnap(); // initialize
+
+        map.on('pm:drawstart', (e) => {
+            const workingLayer = e.workingLayer;
+            if (workingLayer && (e.shape === 'Line' || e.shape === 'Polyline')) {
+                workingLayer.on('pm:vertexadded', (v) => {
+                    if (snapSelfToggle && snapSelfToggle.checked) {
+                        const latlngs = workingLayer.getLatLngs();
+                        if (latlngs.length > 2) {
+                            const first = latlngs[0];
+                            const last = latlngs[latlngs.length - 1];
+                            const dist = map.distance(first, last);
+                            // If distance is extremely small (snapped), finish the line
+                            if (dist < 1) { 
+                                // Finish the drawing perfectly closed
+                                map.pm.disableDraw(e.shape);
+                            }
+                        }
+                    }
+                });
+            }
+        });
 
         // 3. State Management
         let savedShapesData = [];
