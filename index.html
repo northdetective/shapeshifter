@@ -518,6 +518,72 @@
         let customBasemaps = [];
         let customLayerCount = 1;
         
+        function promptWMSLayerSelection(layers) {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0'; overlay.style.left = '0'; overlay.style.width = '100%'; overlay.style.height = '100%';
+                overlay.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                overlay.style.zIndex = '99999';
+                overlay.style.display = 'flex';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+
+                const modal = document.createElement('div');
+                modal.style.background = 'white';
+                modal.style.padding = '20px';
+                modal.style.borderRadius = '8px';
+                modal.style.minWidth = '300px';
+                modal.style.maxHeight = '80vh';
+                modal.style.display = 'flex';
+                modal.style.flexDirection = 'column';
+
+                const title = document.createElement('h3');
+                title.innerText = 'Select WMS Layer';
+                title.style.marginTop = '0';
+                modal.appendChild(title);
+
+                const select = document.createElement('select');
+                select.style.width = '100%';
+                select.style.padding = '8px';
+                select.style.marginBottom = '15px';
+                select.size = Math.min(10, layers.length);
+                
+                layers.forEach(l => {
+                    const opt = document.createElement('option');
+                    opt.value = l.name;
+                    opt.innerText = l.title !== l.name ? `${l.title} (${l.name})` : l.name;
+                    select.appendChild(opt);
+                });
+                modal.appendChild(select);
+                if (layers.length > 0) select.selectedIndex = 0;
+
+                const btnDiv = document.createElement('div');
+                btnDiv.style.display = 'flex';
+                btnDiv.style.justifyContent = 'flex-end';
+                btnDiv.style.gap = '10px';
+
+                const cancelBtn = document.createElement('button');
+                cancelBtn.innerText = 'Cancel';
+                cancelBtn.style.padding = '5px 10px';
+                cancelBtn.onclick = () => { document.body.removeChild(overlay); resolve(null); };
+
+                const okBtn = document.createElement('button');
+                okBtn.innerText = 'Add Layer';
+                okBtn.style.padding = '5px 10px';
+                okBtn.style.background = '#2a75d3';
+                okBtn.style.color = 'white';
+                okBtn.style.border = 'none';
+                okBtn.onclick = () => { document.body.removeChild(overlay); resolve(select.value); };
+
+                btnDiv.appendChild(cancelBtn);
+                btnDiv.appendChild(okBtn);
+                modal.appendChild(btnDiv);
+                overlay.appendChild(modal);
+                document.body.appendChild(overlay);
+            });
+        }
+
         async function addCustomBasemap(url, wmsLayer, silent = false) {
             // Check if already added
             if (customBasemaps.some(b => b.url === url && b.wmsLayer === wmsLayer)) return;
@@ -530,7 +596,6 @@
                     if (p === 'mapserver' || p === 'imageserver') {
                         if (i > 0) {
                             layerName = urlParts[i - 1];
-                            // Replace underscores with spaces for readability
                             layerName = layerName.replace(/_/g, ' ');
                             break;
                         }
@@ -543,7 +608,6 @@
 
             let newLayer;
             
-            // Clean up the URL for WMS by removing parameters Leaflet adds automatically
             let cleanUrl = url;
             try {
                 const urlObj = new URL(url);
@@ -553,20 +617,50 @@
 
             if (wmsLayer || url.toLowerCase().includes('wms')) {
                 let finalWmsLayer = wmsLayer;
-                if (!finalWmsLayer) {
+                if (!finalWmsLayer && !silent) {
                     try {
                         const capUrl = new URL(cleanUrl);
                         capUrl.searchParams.set('request', 'GetCapabilities');
                         capUrl.searchParams.set('service', 'WMS');
                         const response = await fetch(capUrl.toString());
                         const text = await response.text();
-                        const layerMatch = text.match(/<Layer[^>]*>[\s\S]*?<Name>([^<]+)<\/Name>/i);
-                        if (layerMatch && layerMatch[1]) {
-                            finalWmsLayer = layerMatch[1];
+                        
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(text, "text/xml");
+                        const layerNodes = xmlDoc.getElementsByTagName("Layer");
+                        
+                        let availableLayers = [];
+                        for(let i=0; i<layerNodes.length; i++){
+                            let nameNode = null;
+                            let titleNode = null;
+                            for (let j=0; j<layerNodes[i].childNodes.length; j++) {
+                                if (layerNodes[i].childNodes[j].nodeName === 'Name') nameNode = layerNodes[i].childNodes[j];
+                                if (layerNodes[i].childNodes[j].nodeName === 'Title') titleNode = layerNodes[i].childNodes[j];
+                            }
+                            if(nameNode && nameNode.textContent && nameNode.textContent.trim() !== '') {
+                                availableLayers.push({
+                                    name: nameNode.textContent.trim(),
+                                    title: (titleNode && titleNode.textContent) ? titleNode.textContent.trim() : nameNode.textContent.trim()
+                                });
+                            }
+                        }
+                        
+                        if (availableLayers.length > 1) {
+                            const userChoice = await promptWMSLayerSelection(availableLayers);
+                            if (userChoice) {
+                                finalWmsLayer = userChoice;
+                                layerName = userChoice;
+                            } else {
+                                return; // User cancelled
+                            }
+                        } else if (availableLayers.length === 1) {
+                            finalWmsLayer = availableLayers[0].name;
                         }
                     } catch (e) {
-                        console.warn("Could not auto-detect WMS layer name.");
+                        console.warn("Could not auto-detect WMS layer name (CORS or network error).");
                     }
+                } else if (!finalWmsLayer && silent) {
+                    finalWmsLayer = '0'; // default fallback for silent (like from GeoJSON import)
                 }
                 
                 newLayer = L.tileLayer.wms(cleanUrl, {
