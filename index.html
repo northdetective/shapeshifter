@@ -266,7 +266,7 @@
 
         <div class="panel-section">
             <span class="panel-heading">Import shape</span>
-            <input type="file" id="file-import" accept=".geojson,.json,.gpx,.kml,.kmz" style="display: none;" />
+            <input type="file" id="file-import" accept=".geojson,.json,.gpx,.kml,.kmz,.dxf" style="display: none;" />
             <button id="import-btn" class="btn-full btn-import">Upload File</button>
         </div>
 
@@ -338,6 +338,7 @@
     
     <script src="https://unpkg.com/togpx@1.1.0/togpx.js"></script>
     <script src="https://unpkg.com/tokml@0.4.0/tokml.js"></script>
+    <script src="https://unpkg.com/dxf-parser/dist/dxf-parser.js"></script>
     
     <script src="https://unpkg.com/@tmcw/togeojson@4.4.1/dist/togeojson.umd.js"></script>
     <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
@@ -1973,6 +1974,124 @@
                 } else if (ext === 'geojson' || ext === 'json') {
                     const text = await file.text();
                     geojsonData = JSON.parse(text);
+                } else if (ext === 'dxf') {
+                    if (typeof window.DxfParser === 'undefined') throw new Error("DXF Parser library not loaded.");
+                    
+                    const fillAsPolygon = confirm("Fill closed CAD shapes as solid Polygons?\n\nClick 'OK' to fill them, or 'Cancel' to leave them as outlined Polylines.");
+                    
+                    const text = await file.text();
+                    const parser = new window.DxfParser();
+                    const parsed = parser.parseSync(text);
+                    
+                    if (!parsed || !parsed.entities || parsed.entities.length === 0) {
+                        throw new Error("No usable entities found in DXF file.");
+                    }
+
+                    const features = [];
+                    const paths = [];
+                    const pathLayers = []; // Keep track of layers for each path
+
+                    parsed.entities.forEach(entity => {
+                        if (entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE' || entity.type === 'LINE') {
+                            if (!entity.vertices || entity.vertices.length < 2) return;
+                            
+                            const coords = entity.vertices.map(v => {
+                                const latLng = L.Projection.SphericalMercator.unproject(L.point(v.x, v.y));
+                                return [latLng.lng, latLng.lat];
+                            });
+
+                            if (entity.shape || entity.closed) {
+                                // If DXF explicitly says it's closed, ensure endpoints match
+                                if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+                                    coords.push([...coords[0]]);
+                                }
+                            }
+                            
+                            paths.push(coords);
+                            pathLayers.push(entity.layer || 'Layer1');
+                        }
+                    });
+
+                    // Intelligently join contiguous exploded segments (e.g. 50 LINE entities -> 1 Polyline)
+                    let changed = true;
+                    while (changed) {
+                        changed = false;
+                        for (let i = 0; i < paths.length; i++) {
+                            for (let j = i + 1; j < paths.length; j++) {
+                                // Only join if they are on the same layer
+                                if (pathLayers[i] !== pathLayers[j]) continue;
+
+                                const pathA = paths[i];
+                                const pathB = paths[j];
+                                
+                                const aStart = pathA[0];
+                                const aEnd = pathA[pathA.length - 1];
+                                const bStart = pathB[0];
+                                const bEnd = pathB[pathB.length - 1];
+
+                                const TOLERANCE = 1e-8; // Approx 1mm precision
+                                const isMatch = (p1, p2) => Math.abs(p1[0] - p2[0]) < TOLERANCE && Math.abs(p1[1] - p2[1]) < TOLERANCE;
+
+                                if (isMatch(aEnd, bStart)) {
+                                    paths[i] = pathA.concat(pathB.slice(1));
+                                    paths.splice(j, 1);
+                                    pathLayers.splice(j, 1);
+                                    changed = true; break;
+                                } else if (isMatch(aEnd, bEnd)) {
+                                    paths[i] = pathA.concat(pathB.slice(0, -1).reverse());
+                                    paths.splice(j, 1);
+                                    pathLayers.splice(j, 1);
+                                    changed = true; break;
+                                } else if (isMatch(aStart, bEnd)) {
+                                    paths[i] = pathB.concat(pathA.slice(1));
+                                    paths.splice(j, 1);
+                                    pathLayers.splice(j, 1);
+                                    changed = true; break;
+                                } else if (isMatch(aStart, bStart)) {
+                                    paths[i] = pathB.slice(1).reverse().concat(pathA);
+                                    paths.splice(j, 1);
+                                    pathLayers.splice(j, 1);
+                                    changed = true; break;
+                                }
+                            }
+                            if (changed) break;
+                        }
+                    }
+
+                    paths.forEach((coords, idx) => {
+                        const start = coords[0];
+                        const end = coords[coords.length - 1];
+                        const isClosed = Math.abs(start[0] - end[0]) < 1e-8 && Math.abs(start[1] - end[1]) < 1e-8;
+                        
+                        if (isClosed && coords.length > 3 && fillAsPolygon) {
+                            // Ensure strict coordinate match for GeoJSON Polygon spec
+                            if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+                                coords[coords.length - 1] = [...coords[0]];
+                            }
+                            features.push({
+                                type: "Feature",
+                                properties: { layer: pathLayers[idx] },
+                                geometry: {
+                                    type: "Polygon",
+                                    coordinates: [coords]
+                                }
+                            });
+                        } else {
+                            features.push({
+                                type: "Feature",
+                                properties: { layer: pathLayers[idx] },
+                                geometry: {
+                                    type: "LineString",
+                                    coordinates: coords
+                                }
+                            });
+                        }
+                    });
+                    
+                    geojsonData = {
+                        type: "FeatureCollection",
+                        features: features
+                    };
                 } else {
                     throw new Error("Unsupported file format.");
                 }
@@ -2258,10 +2377,14 @@
                         <button class="btn-rename" onclick="renameShape(${shape.id})">Rename</button>
                         <button class="btn-delete" onclick="deleteShape(${shape.id})">Delete</button>
                     </div>
-                    <div class="export-controls">
-                        <button onclick="exportData(${shape.id}, 'geojson')">GeoJSON</button>
-                        <button onclick="exportData(${shape.id}, 'gpx')">GPX</button>
-                        <button onclick="exportData(${shape.id}, 'kml')">KML</button>
+                    <div class="export-controls" style="display: flex; gap: 5px; margin-top: 5px;">
+                        <select id="export-format-${shape.id}" style="flex: 1; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
+                            <option value="geojson">GeoJSON</option>
+                            <option value="dxf">DXF</option>
+                            <option value="kml">KML</option>
+                            <option value="gpx">GPX</option>
+                        </select>
+                        <button onclick="exportData(${shape.id}, document.getElementById('export-format-${shape.id}').value)" style="padding: 5px 10px;" class="btn-action">Export</button>
                     </div>
                 `;
                 listContainer.appendChild(itemDiv);
@@ -2543,6 +2666,48 @@
                     fileExtension = 'kml';
                 } catch (e) {
                     alert("Error converting shape to KML.");
+                    return;
+                }
+            } else if (format === 'dxf') {
+                try {
+                    let dxfString = `  0\nSECTION\n  2\nENTITIES\n`;
+                    let layerName = shape.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Layer1';
+
+                    function processCoords(coords, isClosed) {
+                        if (!coords || coords.length === 0) return;
+                        let output = `  0\nLWPOLYLINE\n  8\n${layerName}\n 90\n${coords.length}\n 70\n${isClosed ? 1 : 0}\n`;
+                        for (let i = 0; i < coords.length; i++) {
+                            let pt = L.Projection.SphericalMercator.project(L.latLng(coords[i][1], coords[i][0]));
+                            output += ` 10\n${pt.x}\n 20\n${pt.y}\n`;
+                        }
+                        dxfString += output;
+                    }
+
+                    if (latestGeoJson && latestGeoJson.features) {
+                        latestGeoJson.features.forEach(f => {
+                            const geom = f.geometry;
+                            if (!geom) return;
+                            
+                            if (geom.type === 'LineString') {
+                                processCoords(geom.coordinates, false);
+                            } else if (geom.type === 'Polygon') {
+                                geom.coordinates.forEach(ring => processCoords(ring, true));
+                            } else if (geom.type === 'MultiLineString') {
+                                geom.coordinates.forEach(line => processCoords(line, false));
+                            } else if (geom.type === 'MultiPolygon') {
+                                geom.coordinates.forEach(poly => {
+                                    poly.forEach(ring => processCoords(ring, true));
+                                });
+                            }
+                        });
+                    }
+
+                    dxfString += `  0\nENDSEC\n  0\nEOF\n`;
+                    fileContent = dxfString;
+                    mimeType = 'application/dxf';
+                    fileExtension = 'dxf';
+                } catch (e) {
+                    alert("Error converting shape to DXF: " + e.message);
                     return;
                 }
             }
