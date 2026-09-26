@@ -718,6 +718,7 @@
                     const wmtsUrl = `${cleanUrl}${separator}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${finalWmsLayer}&STYLE=${wmtsStyle}&FORMAT=${wmtsFormat}&TILEMATRIXSET=${wmtsTileMatrixSet}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
                     newLayer = L.tileLayer(wmtsUrl, {
                         attribution: 'Custom WMTS',
+                        maxNativeZoom: 19,
                         maxZoom: 24
                     });
                 } else {
