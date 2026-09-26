@@ -774,12 +774,8 @@
             }
 
             if (newLayer && typeof newLayer.on === 'function') {
-                let errorAlerted = false;
                 newLayer.on('tileerror', function(error) {
-                    if (!errorAlerted && !silent) {
-                        errorAlerted = true;
-                        alert("Warning: Failed to load tiles for this layer. Ensure the URL is a valid, CORS-enabled WMS, ImageServer, or XYZ Tile endpoint, and that the requested layer name is correct.");
-                    }
+                    console.warn(`Tile failed to load for layer ${layerName}:`, error);
                 });
             }
 
