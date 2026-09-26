@@ -1064,13 +1064,8 @@
             imgOverlay.on('load', function() {
                 setTimeout(() => {
                     const el = imgOverlay.getElement();
-                    if (imgOverlay.editing && imgOverlay.editing.enabled()) {
-                        imgOverlay.select();
-                        if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
-                        if (el) el.style.pointerEvents = 'auto';
-                    } else {
-                        if (el) el.style.pointerEvents = 'none';
-                    }
+                    if (imgOverlay.deselect) imgOverlay.deselect();
+                    if (el) el.style.pointerEvents = 'none';
                     renderCustomBasemapsList();
                 }, 50);
             });
@@ -1086,11 +1081,6 @@
             });
 
             imgOverlay.addTo(map);
-            
-            // Lock by default
-            if (imgOverlay.deselect) {
-                imgOverlay.deselect();
-            }
 
             const layerName = b.layerName || "Imported Image";
             const id = b.id || 'custom_layer_' + Date.now();
