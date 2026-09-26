@@ -584,11 +584,11 @@
             });
         }
 
-        async function addCustomBasemap(url, wmsLayer, silent = false) {
+        async function addCustomBasemap(url, wmsLayer, silent = false, explicitLayerName = null) {
             // Check if already added
             if (customBasemaps.some(b => b.url === url && b.wmsLayer === wmsLayer)) return;
 
-            let layerName = wmsLayer || '';
+            let layerName = explicitLayerName || wmsLayer || '';
             if (!layerName) {
                 const urlParts = url.replace(/\/$/, '').split('/');
                 for (let i = urlParts.length - 1; i >= 0; i--) {
@@ -646,17 +646,20 @@
                         }
                         
                         if (availableLayers.length > 0) {
-                            if (!silent && availableLayers.length > 1) {
+                            // If we don't have a specific layer, prompt the user (even if silent, because we can't guess correctly)
+                            if (availableLayers.length > 1 && !finalWmsLayer) {
                                 const userChoice = await promptWMSLayerSelection(availableLayers);
                                 if (userChoice) {
                                     finalWmsLayer = userChoice;
-                                    layerName = userChoice;
+                                    const selectedLayerObj = availableLayers.find(l => l.name === userChoice);
+                                    layerName = selectedLayerObj ? selectedLayerObj.title : userChoice;
                                 } else {
                                     return; // User cancelled
                                 }
-                            } else {
-                                // If silent is true, or only 1 layer exists, auto-select the first one
+                            } else if (!finalWmsLayer) {
+                                // Only 1 layer exists, auto-select it
                                 finalWmsLayer = availableLayers[0].name;
+                                layerName = availableLayers[0].title || finalWmsLayer;
                             }
                         }
                     } catch (e) {
@@ -676,6 +679,7 @@
                     attribution: 'Custom WMS',
                     maxZoom: 24
                 });
+                wmsLayer = finalWmsLayer; // Save the selected layer name back to the outer variable so it persists in geojson export
             } else if (url.toLowerCase().includes('imageserver') && !url.includes('{z}')) {
                 newLayer = L.esri.imageMapLayer({
                     url: url,
@@ -1319,21 +1323,7 @@
         map.on('pm:drawstart', (e) => {
             const workingLayer = e.workingLayer;
             if (workingLayer && (e.shape === 'Line' || e.shape === 'Polyline')) {
-                workingLayer.on('pm:vertexadded', (v) => {
-                    if (snapSelfToggle && snapSelfToggle.checked) {
-                        const latlngs = workingLayer.getLatLngs();
-                        if (latlngs.length > 2) {
-                            const first = latlngs[0];
-                            const last = latlngs[latlngs.length - 1];
-                            const dist = map.distance(first, last);
-                            // If distance is extremely small (snapped), finish the line
-                            if (dist < 1) { 
-                                // Finish the drawing perfectly closed
-                                map.pm.disableDraw(e.shape);
-                            }
-                        }
-                    }
-                });
+
             }
         });
 
@@ -1343,6 +1333,24 @@
 
         map.on('pm:create', (e) => {
             let layer = e.layer;
+            
+            // Enforce perfect mathematical closure if Snap to Start is on
+            if (layer.getLatLngs && (e.shape === 'Line' || e.shape === 'Polyline')) {
+                const snapSelfToggle = document.getElementById('snap-self-toggle');
+                if (snapSelfToggle && snapSelfToggle.checked) {
+                    const latlngs = layer.getLatLngs();
+                    if (latlngs.length > 2) {
+                        const first = latlngs[0];
+                        const last = latlngs[latlngs.length - 1];
+                        
+                        // Unconditionally mathematically close the loop when Finish is clicked
+                        if (first.lat !== last.lat || first.lng !== last.lng) {
+                            latlngs.push(L.latLng(first.lat, first.lng));
+                            layer.setLatLngs(latlngs);
+                        }
+                    }
+                }
+            }
             
             const targetSelect = document.getElementById('save-target-select');
             const targetId = targetSelect ? targetSelect.value : 'new';
@@ -1773,7 +1781,7 @@
                                         await resurrectGeoreferencedImage(b);
                                     }
                                 } else {
-                                    await addCustomBasemap(b.url, b.wmsLayer, true);
+                                    await addCustomBasemap(b.url, b.wmsLayer, true, b.layerName);
                                 }
                             }
                         }
@@ -2040,7 +2048,7 @@
                                         await resurrectGeoreferencedImage(b);
                                     }
                                 } else {
-                                    await addCustomBasemap(b.url, b.wmsLayer, true);
+                                    await addCustomBasemap(b.url, b.wmsLayer, true, b.layerName);
                                 }
                             }
                         }
@@ -2080,6 +2088,11 @@
 
         // 5. "Finish Feature" Logic
         document.getElementById('save-shape-btn').addEventListener('click', function() {
+            // Force finish any active drawing
+            if (map.pm.globalDrawModeEnabled()) {
+                map.pm.disableDraw();
+            }
+
             if (activeDrawnLayers.getLayers().length === 0) {
                 alert("Please trace a shape on the map first using the toolbar.");
                 return;
