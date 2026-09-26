@@ -224,10 +224,10 @@
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1789762097006",
+        "id": "custom_layer_1790437106684",
         "url": "https://api.nearmap.com/wms/v1/places/2dc760f1-c48f-4d04-8a15-975e7a554fc9/apikey/MGFhOTM5NzMtYTRjZS00MDk1LWJkOTItN2RhYzdjMWNmYWZk?request=getcapabilities&service=wms",
         "wmsLayer": "",
-        "layerName": "Ocean County Nearmap",
+        "layerName": "area/df18b434-9df7-4588-8b22-8eca78c0de89/all/all-combined",
         "opacity": 1
       }
     ]
