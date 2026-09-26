@@ -1054,6 +1054,7 @@
             const imgOverlay = L.distortableImageOverlay(b.imageData, {
                 corners: corners,
                 interactive: true,
+                selected: false,
                 actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
             });
 
@@ -1061,14 +1062,6 @@
                 imgOverlay.setOpacity(b.opacity);
             }
 
-            imgOverlay.on('load', function() {
-                setTimeout(() => {
-                    const el = imgOverlay.getElement();
-                    if (imgOverlay.deselect) imgOverlay.deselect();
-                    if (el) el.style.pointerEvents = 'none';
-                    renderCustomBasemapsList();
-                }, 50);
-            });
             imgOverlay.on('select', function() {
                 const el = imgOverlay.getElement();
                 if (el) el.style.pointerEvents = 'auto';
@@ -1081,6 +1074,14 @@
             });
 
             imgOverlay.addTo(map);
+            
+            // Force deselect asynchronously to ensure it locks even if base64 loads instantly
+            setTimeout(() => {
+                const el = imgOverlay.getElement();
+                if (imgOverlay.deselect) imgOverlay.deselect();
+                if (el) el.style.pointerEvents = 'none';
+                renderCustomBasemapsList();
+            }, 250);
 
             const layerName = b.layerName || "Imported Image";
             const id = b.id || 'custom_layer_' + Date.now();
@@ -1959,22 +1960,10 @@
                     const imgOverlay = L.distortableImageOverlay(overlay.url, {
                         corners: imageBounds,
                         interactive: true,
+                        selected: false,
                         actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
                     });
 
-                    imgOverlay.on('load', function() {
-                        setTimeout(() => {
-                            const el = imgOverlay.getElement();
-                            if (imgOverlay.editing && imgOverlay.editing.enabled()) {
-                                imgOverlay.select();
-                                if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
-                                if (el) el.style.pointerEvents = 'auto';
-                            } else {
-                                if (el) el.style.pointerEvents = 'none';
-                            }
-                            renderCustomBasemapsList();
-                        }, 50);
-                    });
                     imgOverlay.on('select', function() {
                         const el = imgOverlay.getElement();
                         if (el) el.style.pointerEvents = 'auto';
@@ -1988,9 +1977,12 @@
                     
                     imgOverlay.addTo(map);
                     
-                    if (imgOverlay.deselect) {
-                        imgOverlay.deselect();
-                    }
+                    setTimeout(() => {
+                        const el = imgOverlay.getElement();
+                        if (imgOverlay.deselect) imgOverlay.deselect();
+                        if (el) el.style.pointerEvents = 'none';
+                        renderCustomBasemapsList();
+                    }, 250);
 
 
                     // Add to Custom Basemaps list so the user can easily toggle/remove it
