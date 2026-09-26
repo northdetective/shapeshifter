@@ -617,7 +617,7 @@
 
             if (wmsLayer || url.toLowerCase().includes('wms')) {
                 let finalWmsLayer = wmsLayer;
-                if (!finalWmsLayer && !silent) {
+                if (!finalWmsLayer) {
                     try {
                         const capUrl = new URL(cleanUrl);
                         capUrl.searchParams.set('request', 'GetCapabilities');
@@ -645,22 +645,28 @@
                             }
                         }
                         
-                        if (availableLayers.length > 1) {
-                            const userChoice = await promptWMSLayerSelection(availableLayers);
-                            if (userChoice) {
-                                finalWmsLayer = userChoice;
-                                layerName = userChoice;
+                        if (availableLayers.length > 0) {
+                            if (!silent && availableLayers.length > 1) {
+                                const userChoice = await promptWMSLayerSelection(availableLayers);
+                                if (userChoice) {
+                                    finalWmsLayer = userChoice;
+                                    layerName = userChoice;
+                                } else {
+                                    return; // User cancelled
+                                }
                             } else {
-                                return; // User cancelled
+                                // If silent is true, or only 1 layer exists, auto-select the first one
+                                finalWmsLayer = availableLayers[0].name;
                             }
-                        } else if (availableLayers.length === 1) {
-                            finalWmsLayer = availableLayers[0].name;
                         }
                     } catch (e) {
                         console.warn("Could not auto-detect WMS layer name (CORS or network error).");
                     }
-                } else if (!finalWmsLayer && silent) {
-                    finalWmsLayer = '0'; // default fallback for silent (like from GeoJSON import)
+                }
+                
+                // Absolute fallback if everything fails
+                if (!finalWmsLayer) {
+                    finalWmsLayer = '0';
                 }
                 
                 newLayer = L.tileLayer.wms(cleanUrl, {
@@ -1080,6 +1086,11 @@
             });
 
             imgOverlay.addTo(map);
+            
+            // Lock by default
+            if (imgOverlay.deselect) {
+                imgOverlay.deselect();
+            }
 
             const layerName = b.layerName || "Imported Image";
             const id = b.id || 'custom_layer_' + Date.now();
@@ -1986,6 +1997,11 @@
                     });
                     
                     imgOverlay.addTo(map);
+                    
+                    if (imgOverlay.deselect) {
+                        imgOverlay.deselect();
+                    }
+
 
                     // Add to Custom Basemaps list so the user can easily toggle/remove it
                     const layerName = "KML Overlay: " + shapeName;
