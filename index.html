@@ -259,6 +259,9 @@
 					<option value="Wooden_Warrior.geojson">Wooden Warrior (Quassy)</option>
                 </optgroup>
             </select>
+            <label style="display: block; margin-top: 8px; font-size: 13px; cursor: pointer;">
+                <input type="checkbox" id="pretraced-basemaps-toggle" checked> Add basemaps with pretraced tracks
+            </label>
         </div>
 
         <div class="panel-section">
@@ -584,7 +587,7 @@
             });
         }
 
-        async function addCustomBasemap(url, wmsLayer, silent = false, explicitLayerName = null) {
+        async function addCustomBasemap(url, wmsLayer, silent = false, explicitLayerName = null, wmtsOpts = null) {
             // Check if already added
             if (customBasemaps.some(b => b.url === url && b.wmsLayer === wmsLayer)) return;
 
@@ -615,13 +618,23 @@
                 cleanUrl = urlObj.toString();
             } catch (e) {}
 
-            if (wmsLayer || url.toLowerCase().includes('wms')) {
+            let isWMTS = false;
+            let finalWmtsFormat = null;
+            let finalWmtsStyle = null;
+            let finalWmtsTileMatrixSet = null;
+
+            if (wmsLayer || url.toLowerCase().includes('wms') || url.toLowerCase().includes('wmts')) {
+                isWMTS = url.toLowerCase().includes('wmts');
                 let finalWmsLayer = wmsLayer;
+                let wmtsFormat = (wmtsOpts && wmtsOpts.format) ? wmtsOpts.format : 'image/png';
+                let wmtsStyle = (wmtsOpts && wmtsOpts.style) ? wmtsOpts.style : 'default';
+                let wmtsTileMatrixSet = (wmtsOpts && wmtsOpts.tileMatrixSet) ? wmtsOpts.tileMatrixSet : 'default028mm';
+
                 if (!finalWmsLayer) {
                     try {
                         const capUrl = new URL(cleanUrl);
                         capUrl.searchParams.set('request', 'GetCapabilities');
-                        capUrl.searchParams.set('service', 'WMS');
+                        capUrl.searchParams.set('service', isWMTS ? 'WMTS' : 'WMS');
                         const response = await fetch(capUrl.toString());
                         const text = await response.text();
                         
@@ -633,14 +646,34 @@
                         for(let i=0; i<layerNodes.length; i++){
                             let nameNode = null;
                             let titleNode = null;
+                            let format = null;
+                            let tileMatrixSet = null;
+                            let style = null;
+
                             for (let j=0; j<layerNodes[i].childNodes.length; j++) {
-                                if (layerNodes[i].childNodes[j].nodeName === 'Name') nameNode = layerNodes[i].childNodes[j];
-                                if (layerNodes[i].childNodes[j].nodeName === 'Title') titleNode = layerNodes[i].childNodes[j];
+                                const node = layerNodes[i].childNodes[j];
+                                const nodeName = node.nodeName;
+                                if (!nodeName) continue;
+                                
+                                if (nodeName.includes('Name') || nodeName.includes('Identifier')) nameNode = node;
+                                if (nodeName.includes('Title')) titleNode = node;
+                                if (nodeName.includes('Format') && !format) format = node.textContent;
+                                if (nodeName.includes('Style')) {
+                                    const idNode = Array.from(node.childNodes).find(n => n.nodeName && n.nodeName.includes('Identifier'));
+                                    if (idNode) style = idNode.textContent;
+                                }
+                                if (nodeName.includes('TileMatrixSetLink')) {
+                                    const setNode = Array.from(node.childNodes).find(n => n.nodeName && n.nodeName.includes('TileMatrixSet'));
+                                    if (setNode) tileMatrixSet = setNode.textContent;
+                                }
                             }
                             if(nameNode && nameNode.textContent && nameNode.textContent.trim() !== '') {
                                 availableLayers.push({
                                     name: nameNode.textContent.trim(),
-                                    title: (titleNode && titleNode.textContent) ? titleNode.textContent.trim() : nameNode.textContent.trim()
+                                    title: (titleNode && titleNode.textContent) ? titleNode.textContent.trim() : nameNode.textContent.trim(),
+                                    format: format || (isWMTS ? 'image/jpeg' : 'image/png'),
+                                    style: style || 'default',
+                                    tileMatrixSet: tileMatrixSet || 'default028mm'
                                 });
                             }
                         }
@@ -652,7 +685,12 @@
                                 if (userChoice) {
                                     finalWmsLayer = userChoice;
                                     const selectedLayerObj = availableLayers.find(l => l.name === userChoice);
-                                    layerName = selectedLayerObj ? selectedLayerObj.title : userChoice;
+                                    if (selectedLayerObj) {
+                                        layerName = selectedLayerObj.title;
+                                        wmtsFormat = selectedLayerObj.format;
+                                        wmtsStyle = selectedLayerObj.style;
+                                        wmtsTileMatrixSet = selectedLayerObj.tileMatrixSet;
+                                    }
                                 } else {
                                     return; // User cancelled
                                 }
@@ -660,10 +698,13 @@
                                 // Only 1 layer exists, auto-select it
                                 finalWmsLayer = availableLayers[0].name;
                                 layerName = availableLayers[0].title || finalWmsLayer;
+                                wmtsFormat = availableLayers[0].format;
+                                wmtsStyle = availableLayers[0].style;
+                                wmtsTileMatrixSet = availableLayers[0].tileMatrixSet;
                             }
                         }
                     } catch (e) {
-                        console.warn("Could not auto-detect WMS layer name (CORS or network error).");
+                        console.warn("Could not auto-detect WMS/WMTS layer name (CORS or network error).");
                     }
                 }
                 
@@ -672,14 +713,29 @@
                     finalWmsLayer = '0';
                 }
                 
-                newLayer = L.tileLayer.wms(cleanUrl, {
-                    layers: finalWmsLayer || '0', 
-                    format: 'image/png',
-                    transparent: true,
-                    attribution: 'Custom WMS',
-                    maxZoom: 24
-                });
+                if (isWMTS) {
+                    const separator = cleanUrl.includes('?') ? '&' : '?';
+                    const wmtsUrl = `${cleanUrl}${separator}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${finalWmsLayer}&STYLE=${wmtsStyle}&FORMAT=${wmtsFormat}&TILEMATRIXSET=${wmtsTileMatrixSet}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
+                    newLayer = L.tileLayer(wmtsUrl, {
+                        attribution: 'Custom WMTS',
+                        maxZoom: 24
+                    });
+                } else {
+                    newLayer = L.tileLayer.wms(cleanUrl, {
+                        layers: finalWmsLayer, 
+                        format: 'image/png',
+                        transparent: true,
+                        attribution: 'Custom WMS',
+                        maxZoom: 24
+                    });
+                }
+                
                 wmsLayer = finalWmsLayer; // Save the selected layer name back to the outer variable so it persists in geojson export
+                if (isWMTS) {
+                    finalWmtsFormat = wmtsFormat;
+                    finalWmtsStyle = wmtsStyle;
+                    finalWmtsTileMatrixSet = wmtsTileMatrixSet;
+                }
             } else if (url.toLowerCase().includes('imageserver') && !url.includes('{z}')) {
                 newLayer = L.esri.imageMapLayer({
                     url: url,
@@ -731,7 +787,7 @@
             newLayer.addTo(map);
             
             const id = 'custom_layer_' + Date.now();
-            customBasemaps.push({ id, url, wmsLayer, layerName, layer: newLayer });
+            customBasemaps.push({ id, url, wmsLayer, layerName, layer: newLayer, wmtsOpts: isWMTS ? {format: finalWmtsFormat, style: finalWmtsStyle, tileMatrixSet: finalWmtsTileMatrixSet} : null });
             renderCustomBasemapsList();
 
             if (!silent) alert(`Added ${layerName} to map and layer controls!`);
@@ -1773,7 +1829,9 @@
                 let shapeColor = '#ff2a00';
                 if (geojsonData && geojsonData.properties) {
                     if (geojsonData.properties.color) shapeColor = geojsonData.properties.color;
-                    if (geojsonData.properties.basemaps && Array.isArray(geojsonData.properties.basemaps)) {
+                    
+                    const shouldLoadBasemaps = document.getElementById('pretraced-basemaps-toggle').checked;
+                    if (shouldLoadBasemaps && geojsonData.properties.basemaps && Array.isArray(geojsonData.properties.basemaps)) {
                         for (const b of geojsonData.properties.basemaps) {
                             if (b && typeof b.url === 'string') {
                                 if (b.url === 'local_image' && b.imageData && b.corners) {
@@ -1781,7 +1839,7 @@
                                         await resurrectGeoreferencedImage(b);
                                     }
                                 } else {
-                                    await addCustomBasemap(b.url, b.wmsLayer, true, b.layerName);
+                                    await addCustomBasemap(b.url, b.wmsLayer, true, b.layerName, b.wmtsOpts);
                                 }
                             }
                         }
@@ -2048,7 +2106,7 @@
                                         await resurrectGeoreferencedImage(b);
                                     }
                                 } else {
-                                    await addCustomBasemap(b.url, b.wmsLayer, true, b.layerName);
+                                    await addCustomBasemap(b.url, b.wmsLayer, true, b.layerName, b.wmtsOpts);
                                 }
                             }
                         }
@@ -2417,6 +2475,7 @@
                     url: b.url,
                     wmsLayer: b.wmsLayer,
                     layerName: b.layerName,
+                    wmtsOpts: b.wmtsOpts,
                     opacity: (b.layer && b.layer.options && b.layer.options.opacity !== undefined) ? b.layer.options.opacity : 1
                 };
 
