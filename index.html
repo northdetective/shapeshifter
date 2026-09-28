@@ -766,10 +766,11 @@
                 });
             } else if (url.toLowerCase().includes('mapserver') && !url.includes('{z}')) {
                 let isCached = false;
+                let mapServerData = null;
                 try {
                     const response = await fetch(url + '?f=json');
-                    const data = await response.json();
-                    if (data.singleFusedMapCache) isCached = true;
+                    mapServerData = await response.json();
+                    if (mapServerData.singleFusedMapCache) isCached = true;
                 } catch (e) {
                     console.warn("Could not determine map cache status, defaulting to dynamic.");
                 }
@@ -781,11 +782,44 @@
                         maxZoom: 24
                     });
                 } else {
-                    newLayer = L.esri.dynamicMapLayer({
+                    let finalLayerIds = null;
+                    if (mapServerData && mapServerData.layers && mapServerData.layers.length > 0) {
+                        if (wmsLayer) {
+                           finalLayerIds = [parseInt(wmsLayer)];
+                        } else if (mapServerData.layers.length > 1) {
+                            const availableLayers = mapServerData.layers.map(l => ({
+                                name: l.id.toString(),
+                                title: l.name
+                            }));
+                            
+                            // Reuse the WMS modal logic for consistency
+                            const userChoice = await promptWMSLayerSelection(availableLayers);
+                            if (userChoice) {
+                                finalLayerIds = [parseInt(userChoice)];
+                                wmsLayer = userChoice;
+                                
+                                const selectedObj = availableLayers.find(l => l.name === userChoice);
+                                if (selectedObj && !explicitLayerName) {
+                                    layerName = selectedObj.title;
+                                }
+                            }
+                        } else if (mapServerData.layers.length === 1) {
+                            finalLayerIds = [mapServerData.layers[0].id];
+                            wmsLayer = finalLayerIds[0].toString();
+                            if (!explicitLayerName) layerName = mapServerData.layers[0].name;
+                        }
+                    }
+
+                    const dynamicOpts = {
                         url: url,
                         opacity: 1,
                         maxZoom: 24
-                    });
+                    };
+                    if (finalLayerIds) {
+                        dynamicOpts.layers = finalLayerIds;
+                    }
+                    
+                    newLayer = L.esri.dynamicMapLayer(dynamicOpts);
                 }
             } else {
                 newLayer = L.tileLayer(url, {
