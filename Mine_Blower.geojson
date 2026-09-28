@@ -66,7 +66,7 @@
             28.330509
           ],
           [
-            -81.514356,
+            -81.514355,
             28.330181
           ],
           [
@@ -74,7 +74,7 @@
             28.330134
           ],
           [
-            -81.514351,
+            -81.514349,
             28.330084
           ],
           [
@@ -477,11 +477,11 @@
     }
   ],
   "properties": {
-    "name": "Mine Blower",
+    "name": "Mine Blower (Fun Spot Kissimmee)",
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1790545821499",
+        "id": "custom_layer_1790565873752",
         "url": "https://paags.property-appraiser.org/server/rest/services/AGS_AERIALS_2023_WM/MapServer",
         "wmsLayer": "",
         "layerName": "AGS AERIALS 2023 WM",
