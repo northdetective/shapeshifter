@@ -2046,36 +2046,13 @@
                     const paths = [];
                     const pathLayers = []; // Keep track of layers for each path
 
-                    let originX = 0, originY = 0, scaleFactor = 1;
-                    let hasMetadata = false;
-
-                    // First pass: extract metadata
                     parsed.entities.forEach(entity => {
-                        if (entity.layer && entity.layer.startsWith('SHAPESHIFTER_META|')) {
-                            let parts = entity.layer.split('|');
-                            if (parts.length === 4) {
-                                originX = parseFloat(parts[1]);
-                                originY = parseFloat(parts[2]);
-                                scaleFactor = parseFloat(parts[3]);
-                                hasMetadata = true;
-                            }
-                        }
-                    });
-
-                    // Second pass: process actual geometry
-                    parsed.entities.forEach(entity => {
-                        if (entity.layer && entity.layer.startsWith('SHAPESHIFTER_META|')) return; // Skip metadata layer
-
                         if (entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE' || entity.type === 'LINE') {
                             if (!entity.vertices || entity.vertices.length < 2) return;
                             
                             const coords = entity.vertices.map(v => {
-                                let px = v.x;
-                                let py = v.y;
-                                if (hasMetadata) {
-                                    px = (px / unitScale / scaleFactor) + originX;
-                                    py = (py / unitScale / scaleFactor) + originY;
-                                }
+                                let px = v.x / unitScale;
+                                let py = v.y / unitScale;
                                 const latLng = L.Projection.SphericalMercator.unproject(L.point(px, py));
                                 return [latLng.lng, latLng.lat];
                             });
@@ -2753,39 +2730,6 @@
                     let dxfString = `  0\nSECTION\n  2\nENTITIES\n`;
                     let layerName = shape.name.replace(/[^a-zA-Z0-9_-]/g, '_') || 'Layer1';
 
-                    let originPt = null;
-                    let scaleFactor = 1;
-                    
-                    // First pass: find the origin and calculate the scale factor
-                    if (latestGeoJson && latestGeoJson.features) {
-                        for (let f of latestGeoJson.features) {
-                            if (f.geometry && f.geometry.coordinates) {
-                                let c = f.geometry.coordinates;
-                                let firstCoord = null;
-                                if (f.geometry.type === 'LineString') firstCoord = c[0];
-                                else if (f.geometry.type === 'Polygon') firstCoord = c[0][0];
-                                else if (f.geometry.type === 'MultiLineString') firstCoord = c[0][0];
-                                else if (f.geometry.type === 'MultiPolygon') firstCoord = c[0][0][0];
-                                
-                                if (firstCoord) {
-                                    let latLng = L.latLng(firstCoord[1], firstCoord[0]);
-                                    originPt = L.Projection.SphericalMercator.project(latLng);
-                                    scaleFactor = Math.cos(latLng.lat * Math.PI / 180);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if (!originPt) {
-                        originPt = { x: 0, y: 0 };
-                        scaleFactor = 1;
-                    }
-
-                    // Write the hidden metadata as a POINT at 0,0 using the Layer Name to store the data
-                    let metaLayer = `SHAPESHIFTER_META|${originPt.x}|${originPt.y}|${scaleFactor}`;
-                    dxfString += `  0\nPOINT\n  8\n${metaLayer}\n 10\n0.0\n 20\n0.0\n 30\n0.0\n`;
-
                     const unitScale = document.getElementById('cad-units-meters').checked ? 1.0 : 3.280839895;
 
                     function processCoords(coords, isClosed) {
@@ -2793,8 +2737,8 @@
                         let output = `  0\nLWPOLYLINE\n  8\n${layerName}\n 90\n${coords.length}\n 70\n${isClosed ? 1 : 0}\n`;
                         for (let i = 0; i < coords.length; i++) {
                             let pt = L.Projection.SphericalMercator.project(L.latLng(coords[i][1], coords[i][0]));
-                            let localX = (pt.x - originPt.x) * scaleFactor * unitScale;
-                            let localY = (pt.y - originPt.y) * scaleFactor * unitScale;
+                            let localX = pt.x * unitScale;
+                            let localY = pt.y * unitScale;
                             output += ` 10\n${localX}\n 20\n${localY}\n`;
                         }
                         dxfString += output;
