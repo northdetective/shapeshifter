@@ -680,7 +680,11 @@
                                 const nodeName = node.nodeName;
                                 if (!nodeName) continue;
                                 
-                                if (nodeName.includes('Name') || nodeName.includes('Identifier')) nameNode = node;
+                                if (nodeName.includes('Name')) {
+                                    nameNode = node;
+                                } else if (nodeName.includes('Identifier') && !nameNode) {
+                                    nameNode = node;
+                                }
                                 if (nodeName.includes('Title')) titleNode = node;
                                 if (nodeName.includes('Format') && !format) format = node.textContent;
                                 if (nodeName.includes('Style')) {
