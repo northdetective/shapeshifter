@@ -573,9 +573,9 @@
                 select.style.marginBottom = '15px';
                 select.style.fontSize = '14px';
                 
-                layers.forEach(l => {
+                layers.forEach((l, index) => {
                     const opt = document.createElement('option');
-                    opt.value = l.name;
+                    opt.value = index.toString();
                     opt.innerText = l.title !== l.name ? `${l.title} (${l.name})` : l.name;
                     select.appendChild(opt);
                 });
@@ -680,9 +680,10 @@
                                 const nodeName = node.nodeName;
                                 if (!nodeName) continue;
                                 
-                                if (nodeName.includes('Name')) {
+                                const lowerName = nodeName.toLowerCase();
+                                if (lowerName.includes('name')) {
                                     nameNode = node;
-                                } else if (nodeName.includes('Identifier') && !nameNode) {
+                                } else if (lowerName.includes('identifier') && !nameNode) {
                                     nameNode = node;
                                 }
                                 if (nodeName.includes('Title')) titleNode = node;
@@ -711,10 +712,10 @@
                             // If we don't have a specific layer, prompt the user (even if silent, because we can't guess correctly)
                             if (availableLayers.length > 1 && !finalWmsLayer) {
                                 const userChoice = await promptWMSLayerSelection(availableLayers);
-                                if (userChoice) {
-                                    finalWmsLayer = userChoice;
-                                    const selectedLayerObj = availableLayers.find(l => l.name === userChoice);
+                                if (userChoice !== null) {
+                                    const selectedLayerObj = availableLayers[parseInt(userChoice)];
                                     if (selectedLayerObj) {
+                                        finalWmsLayer = selectedLayerObj.name;
                                         layerName = selectedLayerObj.title;
                                         wmtsFormat = selectedLayerObj.format;
                                         wmtsStyle = selectedLayerObj.style;
@@ -804,13 +805,12 @@
                             
                             // Reuse the WMS modal logic for consistency
                             const userChoice = await promptWMSLayerSelection(availableLayers);
-                            if (userChoice) {
-                                finalLayerIds = [parseInt(userChoice)];
-                                wmsLayer = userChoice;
-                                
-                                const selectedObj = availableLayers.find(l => l.name === userChoice);
-                                if (selectedObj && !explicitLayerName) {
-                                    layerName = selectedObj.title;
+                            if (userChoice !== null) {
+                                const selectedObj = availableLayers[parseInt(userChoice)];
+                                if (selectedObj) {
+                                    finalLayerIds = [parseInt(selectedObj.name)];
+                                    wmsLayer = selectedObj.name;
+                                    if (!explicitLayerName) layerName = selectedObj.title;
                                 }
                             }
                         } else if (mapServerData.layers.length === 1) {
