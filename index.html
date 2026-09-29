@@ -571,7 +571,7 @@
                 select.style.width = '100%';
                 select.style.padding = '8px';
                 select.style.marginBottom = '15px';
-                select.size = Math.min(10, layers.length);
+                select.style.fontSize = '14px';
                 
                 layers.forEach(l => {
                     const opt = document.createElement('option');
@@ -2746,23 +2746,44 @@
                         dxfString += output;
                     }
 
+                    function processGeom(geom) {
+                        if (!geom) return;
+                        
+                        if (geom.type === 'LineString') {
+                            processCoords(geom.coordinates, false);
+                        } else if (geom.type === 'Polygon') {
+                            geom.coordinates.forEach(ring => processCoords(ring, true));
+                        } else if (geom.type === 'MultiLineString') {
+                            geom.coordinates.forEach(line => processCoords(line, false));
+                        } else if (geom.type === 'MultiPolygon') {
+                            geom.coordinates.forEach(poly => {
+                                poly.forEach(ring => processCoords(ring, true));
+                            });
+                        } else if (geom.type === 'GeometryCollection' && geom.geometries) {
+                            geom.geometries.forEach(subGeom => processGeom(subGeom));
+                        } else if (geom.type === 'Point') {
+                            let pt = L.Projection.SphericalMercator.project(L.latLng(geom.coordinates[1], geom.coordinates[0]));
+                            let localX = pt.x * unitScale;
+                            let localY = pt.y * unitScale;
+                            dxfString += `  0\nPOINT\n  8\n${layerName}\n 10\n${localX}\n 20\n${localY}\n 30\n0.0\n`;
+                        } else if (geom.type === 'MultiPoint') {
+                            geom.coordinates.forEach(c => {
+                                let pt = L.Projection.SphericalMercator.project(L.latLng(c[1], c[0]));
+                                let localX = pt.x * unitScale;
+                                let localY = pt.y * unitScale;
+                                dxfString += `  0\nPOINT\n  8\n${layerName}\n 10\n${localX}\n 20\n${localY}\n 30\n0.0\n`;
+                            });
+                        }
+                    }
+
                     if (latestGeoJson && latestGeoJson.features) {
                         latestGeoJson.features.forEach(f => {
-                            const geom = f.geometry;
-                            if (!geom) return;
-                            
-                            if (geom.type === 'LineString') {
-                                processCoords(geom.coordinates, false);
-                            } else if (geom.type === 'Polygon') {
-                                geom.coordinates.forEach(ring => processCoords(ring, true));
-                            } else if (geom.type === 'MultiLineString') {
-                                geom.coordinates.forEach(line => processCoords(line, false));
-                            } else if (geom.type === 'MultiPolygon') {
-                                geom.coordinates.forEach(poly => {
-                                    poly.forEach(ring => processCoords(ring, true));
-                                });
-                            }
+                            processGeom(f.geometry);
                         });
+                    }
+
+                    if (dxfString === `  0\nSECTION\n  2\nENTITIES\n`) {
+                        alert("Warning: The exported DXF contains no geometry! Please ensure the shape is fully loaded and visible on the map.");
                     }
 
                     dxfString += `  0\nENDSEC\n  0\nEOF\n`;

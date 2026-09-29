@@ -496,8 +496,8 @@
     "basemaps": [
       {
         "url": "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_HIST_DOP_20_RGB?",
-        "wmsLayer": "",
-        "layerName": "Custom Layer 1"
+        "wmsLayer": "2024-2022_DOP_20_RGB",
+        "layerName": "Baden-Württemberg DOP 20 RGB (2024)"
       }
     ]
   }
