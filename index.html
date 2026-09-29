@@ -598,7 +598,11 @@
                 okBtn.style.background = '#2a75d3';
                 okBtn.style.color = 'white';
                 okBtn.style.border = 'none';
-                okBtn.onclick = () => { document.body.removeChild(overlay); resolve(select.value); };
+                okBtn.onclick = () => { 
+                    const selectedValue = select.options[select.selectedIndex].value;
+                    document.body.removeChild(overlay); 
+                    resolve(selectedValue); 
+                };
 
                 btnDiv.appendChild(cancelBtn);
                 btnDiv.appendChild(okBtn);
