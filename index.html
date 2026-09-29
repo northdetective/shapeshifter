@@ -1199,8 +1199,9 @@
             
             // Force deselect asynchronously to ensure it locks even if base64 loads instantly
             setTimeout(() => {
-                const el = imgOverlay.getElement();
+                if (imgOverlay.editing) imgOverlay.editing.disable();
                 if (imgOverlay.deselect) imgOverlay.deselect();
+                const el = imgOverlay.getElement();
                 if (el) el.style.pointerEvents = 'none';
                 renderCustomBasemapsList();
             }, 250);
@@ -1257,14 +1258,16 @@
 
                 imgOverlay.on('load', function() {
                     setTimeout(() => {
-                        const el = imgOverlay.getElement();
-                        if (imgOverlay.editing && imgOverlay.editing.enabled()) {
-                            imgOverlay.select();
-                            if (imgOverlay.editing.setMode) imgOverlay.editing.setMode('drag');
-                            if (el) el.style.pointerEvents = 'auto';
-                        } else {
-                            if (el) el.style.pointerEvents = 'none';
+                        if (imgOverlay.editing) {
+                            imgOverlay.editing.disable();
                         }
+                        if (imgOverlay.deselect) {
+                            imgOverlay.deselect();
+                        }
+                        
+                        const el = imgOverlay.getElement();
+                        if (el) el.style.pointerEvents = 'none';
+                        
                         renderCustomBasemapsList();
                     }, 50);
                 });
