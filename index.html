@@ -339,7 +339,7 @@
                 <input type="checkbox" id="group-move-toggle" checked> Grouped features move/rotate as one unit
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="cad-fill-polygons" checked> Make closed lines from .dxf files into polygons
+                <input type="checkbox" id="cad-fill-polygons"> Make closed lines from .dxf files into polygons
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
                 <input type="checkbox" id="cad-units-meters"> Export .dxf in meters (leave unchecked for feet)
@@ -768,7 +768,9 @@
                 let isCached = false;
                 let mapServerData = null;
                 try {
-                    const response = await fetch(url + '?f=json');
+                    const jsonUrl = new URL(url);
+                    jsonUrl.searchParams.set('f', 'json');
+                    const response = await fetch(jsonUrl.toString());
                     mapServerData = await response.json();
                     if (mapServerData.singleFusedMapCache) isCached = true;
                 } catch (e) {
@@ -786,7 +788,7 @@
                     if (mapServerData && mapServerData.layers && mapServerData.layers.length > 0) {
                         if (wmsLayer) {
                            finalLayerIds = [parseInt(wmsLayer)];
-                        } else if (mapServerData.layers.length > 1) {
+                        } else if (mapServerData.layers.length > 1 && !silent) {
                             const availableLayers = mapServerData.layers.map(l => ({
                                 name: l.id.toString(),
                                 title: l.name
