@@ -219,6 +219,7 @@
                     <option value="Psycho_Mouse.geojson">Psycho Mouse (California's Great America)</option>
                     <option value="RailBlazer.geojson">RailBlazer (California's Great America)</option>
                     <option value="Woodstock_Express.geojson">Woodstock Express (California's Great America)</option>
+					<option value="Unbuilt_B&M_Hyper.geojson">Unbuilt B&M Hyper</option>
                 </optgroup>
 
                 <optgroup label="Stock Models">
@@ -418,7 +419,8 @@
             };
         }
 
-        // Intercept select so locked images never auto-select on direct map click
+        // Intercept select and deselect so locked images never auto-select,
+        // and images in Edit Mode NEVER exit edit mode from map clicks or drag releases
         if (window.L && L.DistortableImageOverlay) {
             if (L.DistortableImageOverlay.prototype.options) {
                 L.DistortableImageOverlay.prototype.options.mode = 'drag';
@@ -431,10 +433,40 @@
                 }
                 return origSelect.call(this, e);
             };
+
+            const origDeselect = L.DistortableImageOverlay.prototype.deselect;
+            L.DistortableImageOverlay.prototype.deselect = function(force) {
+                // Do not exit edit mode unless explicitly triggered (e.g. clicking Done in sidebar)
+                if (this._inEditMode && !force) {
+                    return this;
+                }
+                return origDeselect.call(this);
+            };
+
+            L.DistortableImageOverlay.prototype._singleClick = function(e) {
+                if (this._inEditMode) return;
+                if (e && e.type === 'singleclick') {
+                    this.deselect();
+                }
+            };
+        }
+
+        // Prevent handle clicks and drags from leaking click events to the map
+        if (window.L && L.EditHandle) {
+            const origBind = L.EditHandle.prototype._bindListeners;
+            L.EditHandle.prototype._bindListeners = function() {
+                origBind.call(this);
+                this.on('click mousedown touchstart', function(e) {
+                    if (e && e.originalEvent) {
+                        L.DomEvent.stopPropagation(e);
+                    }
+                });
+            };
         }
 
         function configureDistortableImageOverlay(imgOverlay) {
             imgOverlay._locked = true;
+            imgOverlay._inEditMode = false;
 
             imgOverlay.on('select', function() {
                 this._locked = false;
@@ -444,18 +476,22 @@
             });
 
             imgOverlay.on('deselect', function() {
-                this._locked = true;
-                const el = this.getElement();
-                if (el) el.style.pointerEvents = 'none';
+                if (!this._inEditMode) {
+                    this._locked = true;
+                    const el = this.getElement();
+                    if (el) el.style.pointerEvents = 'none';
+                }
                 renderCustomBasemapsList();
             });
 
             const lock = () => {
-                imgOverlay._locked = true;
-                if (imgOverlay.deselect) imgOverlay.deselect();
-                const el = imgOverlay.getElement();
-                if (el) el.style.pointerEvents = 'none';
-                renderCustomBasemapsList();
+                if (!imgOverlay._inEditMode) {
+                    imgOverlay._locked = true;
+                    if (imgOverlay.deselect) imgOverlay.deselect(true);
+                    const el = imgOverlay.getElement();
+                    if (el) el.style.pointerEvents = 'none';
+                    renderCustomBasemapsList();
+                }
             };
 
             imgOverlay.on('load', lock);
@@ -1018,21 +1054,25 @@
             const b = customBasemaps[index];
             if (!b || !b.layer || typeof b.layer.select !== 'function') return;
             if (b.layer.isSelected && b.layer.isSelected()) {
+                // Done clicked: explicitly finish editing and lock
+                b.layer._inEditMode = false;
                 b.layer._locked = true;
-                b.layer.deselect();
+                b.layer.deselect(true);
                 const el = b.layer.getElement();
                 if (el) el.style.pointerEvents = 'none';
             } else {
                 // Deselect any other georeferenced layers first
                 customBasemaps.forEach(other => {
                     if (other.layer && other.layer !== b.layer && other.layer.deselect) {
+                        other.layer._inEditMode = false;
                         other.layer._locked = true;
-                        other.layer.deselect();
+                        other.layer.deselect(true);
                         const oEl = other.layer.getElement();
                         if (oEl) oEl.style.pointerEvents = 'none';
                     }
                 });
                 b.layer._locked = false;
+                b.layer._inEditMode = true;
                 const el = b.layer.getElement();
                 if (el) el.style.pointerEvents = 'auto';
                 b.layer.select();
