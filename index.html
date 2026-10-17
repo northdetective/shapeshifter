@@ -375,6 +375,94 @@
     <script src="https://unpkg.com/leaflet-distortableimage@0.21.9/dist/leaflet.distortableimage.js"></script>
 
     <script>
+        // Patch Leaflet.DistortableImage upstream bugs
+        if (window.L && L.DistortableImage && L.DistortableImage.Edit) {
+            // 1. Fix handle leaking in removeHooks that left orphaned ghost markers on map
+            const origRemoveHooks = L.DistortableImage.Edit.prototype.removeHooks;
+            L.DistortableImage.Edit.prototype.removeHooks = function() {
+                if (this._handles && this._overlay && this._overlay._map) {
+                    for (const mode in this._handles) {
+                        const group = this._handles[mode];
+                        if (group && this._overlay._map.hasLayer(group)) {
+                            this._overlay._map.removeLayer(group);
+                        }
+                    }
+                }
+                if (this.currentHandle && this._overlay && this._overlay._map && this._overlay._map.hasLayer(this.currentHandle)) {
+                    this._overlay._map.removeLayer(this.currentHandle);
+                }
+                origRemoveHooks.call(this);
+            };
+
+            // 2. Ensure handles update visibility and interactivity cleanly on mode switch
+            const origUpdateHandle = L.DistortableImage.Edit.prototype._updateHandle;
+            L.DistortableImage.Edit.prototype._updateHandle = function() {
+                origUpdateHandle.call(this);
+                if (this._overlay && this._overlay.isSelected && this._overlay.isSelected()) {
+                    this._showMarkers();
+                } else {
+                    this._hideMarkers();
+                }
+            };
+
+            // 3. Prevent recursive setMode re-entrancy caused by clickTool
+            const origSetMode = L.DistortableImage.Edit.prototype.setMode;
+            L.DistortableImage.Edit.prototype.setMode = function(newMode) {
+                if (this._settingMode) return this;
+                this._settingMode = true;
+                try {
+                    return origSetMode.call(this, newMode);
+                } finally {
+                    this._settingMode = false;
+                }
+            };
+        }
+
+        // Intercept select so locked images never auto-select on direct map click
+        if (window.L && L.DistortableImageOverlay) {
+            if (L.DistortableImageOverlay.prototype.options) {
+                L.DistortableImageOverlay.prototype.options.mode = 'drag';
+            }
+
+            const origSelect = L.DistortableImageOverlay.prototype.select;
+            L.DistortableImageOverlay.prototype.select = function(e) {
+                if (this._locked) {
+                    return this;
+                }
+                return origSelect.call(this, e);
+            };
+        }
+
+        function configureDistortableImageOverlay(imgOverlay) {
+            imgOverlay._locked = true;
+
+            imgOverlay.on('select', function() {
+                this._locked = false;
+                const el = this.getElement();
+                if (el) el.style.pointerEvents = 'auto';
+                renderCustomBasemapsList();
+            });
+
+            imgOverlay.on('deselect', function() {
+                this._locked = true;
+                const el = this.getElement();
+                if (el) el.style.pointerEvents = 'none';
+                renderCustomBasemapsList();
+            });
+
+            const lock = () => {
+                imgOverlay._locked = true;
+                if (imgOverlay.deselect) imgOverlay.deselect();
+                const el = imgOverlay.getElement();
+                if (el) el.style.pointerEvents = 'none';
+                renderCustomBasemapsList();
+            };
+
+            imgOverlay.on('load', lock);
+            setTimeout(lock, 50);
+            setTimeout(lock, 250);
+        }
+
         // Panel Toggle Logic
         document.getElementById('toggle-panel-btn').addEventListener('click', function() {
             const content = document.getElementById('panel-content');
@@ -930,13 +1018,27 @@
             const b = customBasemaps[index];
             if (!b || !b.layer || typeof b.layer.select !== 'function') return;
             if (b.layer.isSelected && b.layer.isSelected()) {
+                b.layer._locked = true;
                 b.layer.deselect();
+                const el = b.layer.getElement();
+                if (el) el.style.pointerEvents = 'none';
             } else {
-                if (b.layer.editing && !b.layer.editing.enabled()) {
-                    b.layer.editing.enable();
-                }
+                // Deselect any other georeferenced layers first
+                customBasemaps.forEach(other => {
+                    if (other.layer && other.layer !== b.layer && other.layer.deselect) {
+                        other.layer._locked = true;
+                        other.layer.deselect();
+                        const oEl = other.layer.getElement();
+                        if (oEl) oEl.style.pointerEvents = 'none';
+                    }
+                });
+                b.layer._locked = false;
+                const el = b.layer.getElement();
+                if (el) el.style.pointerEvents = 'auto';
                 b.layer.select();
-                if (b.layer.editing && b.layer.editing.setMode) b.layer.editing.setMode('drag');
+                if (b.layer.editing && b.layer.editing.setMode) {
+                    b.layer.editing.setMode('drag');
+                }
             }
             renderCustomBasemapsList();
         };
@@ -1176,6 +1278,7 @@
             const corners = b.corners.map(c => L.latLng(c.lat, c.lng));
             const imgOverlay = L.distortableImageOverlay(b.imageData, {
                 corners: corners,
+                mode: 'drag',
                 interactive: true,
                 selected: false,
                 actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
@@ -1185,27 +1288,8 @@
                 imgOverlay.setOpacity(b.opacity);
             }
 
-            imgOverlay.on('select', function() {
-                const el = imgOverlay.getElement();
-                if (el) el.style.pointerEvents = 'auto';
-                renderCustomBasemapsList();
-            });
-            imgOverlay.on('deselect', function() {
-                const el = imgOverlay.getElement();
-                if (el) el.style.pointerEvents = 'none';
-                renderCustomBasemapsList();
-            });
-
+            configureDistortableImageOverlay(imgOverlay);
             imgOverlay.addTo(map);
-            
-            // Force deselect asynchronously to ensure it locks even if base64 loads instantly
-            setTimeout(() => {
-                if (imgOverlay.editing) imgOverlay.editing.disable();
-                if (imgOverlay.deselect) imgOverlay.deselect();
-                const el = imgOverlay.getElement();
-                if (el) el.style.pointerEvents = 'none';
-                renderCustomBasemapsList();
-            }, 250);
 
             const layerName = b.layerName || "Imported Image";
             const id = b.id || 'custom_layer_' + Date.now();
@@ -1253,36 +1337,13 @@
 
                 const imgOverlay = L.distortableImageOverlay(url, {
                     corners: imageBounds,
+                    mode: 'drag',
                     interactive: true,
+                    selected: false,
                     actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
                 });
 
-                imgOverlay.on('load', function() {
-                    setTimeout(() => {
-                        if (imgOverlay.editing) {
-                            imgOverlay.editing.disable();
-                        }
-                        if (imgOverlay.deselect) {
-                            imgOverlay.deselect();
-                        }
-                        
-                        const el = imgOverlay.getElement();
-                        if (el) el.style.pointerEvents = 'none';
-                        
-                        renderCustomBasemapsList();
-                    }, 50);
-                });
-                imgOverlay.on('select', function() {
-                    const el = imgOverlay.getElement();
-                    if (el) el.style.pointerEvents = 'auto';
-                    renderCustomBasemapsList();
-                });
-                imgOverlay.on('deselect', function() {
-                    const el = imgOverlay.getElement();
-                    if (el) el.style.pointerEvents = 'none';
-                    renderCustomBasemapsList();
-                });
-
+                configureDistortableImageOverlay(imgOverlay);
                 imgOverlay.addTo(map);
 
                 // Add to Custom Basemaps List for management
@@ -2212,30 +2273,14 @@
 
                     const imgOverlay = L.distortableImageOverlay(overlay.url, {
                         corners: imageBounds,
+                        mode: 'drag',
                         interactive: true,
                         selected: false,
                         actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
                     });
 
-                    imgOverlay.on('select', function() {
-                        const el = imgOverlay.getElement();
-                        if (el) el.style.pointerEvents = 'auto';
-                        renderCustomBasemapsList();
-                    });
-                    imgOverlay.on('deselect', function() {
-                        const el = imgOverlay.getElement();
-                        if (el) el.style.pointerEvents = 'none';
-                        renderCustomBasemapsList();
-                    });
-                    
+                    configureDistortableImageOverlay(imgOverlay);
                     imgOverlay.addTo(map);
-                    
-                    setTimeout(() => {
-                        const el = imgOverlay.getElement();
-                        if (imgOverlay.deselect) imgOverlay.deselect();
-                        if (el) el.style.pointerEvents = 'none';
-                        renderCustomBasemapsList();
-                    }, 250);
 
 
                     // Add to Custom Basemaps list so the user can easily toggle/remove it
