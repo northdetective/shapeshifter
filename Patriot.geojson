@@ -3,7 +3,9 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {},
+      "properties": {
+        "name": "Track"
+      },
       "geometry": {
         "type": "LineString",
         "coordinates": [
@@ -373,6 +375,46 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "stroke": "#ffffff",
+        "fill": "#ffffff",
+        "name": "Station"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -121.973102,
+              37.396589
+            ],
+            [
+              -121.973242,
+              37.396588
+            ],
+            [
+              -121.973243,
+              37.396737
+            ],
+            [
+              -121.973103,
+              37.396737
+            ],
+            [
+              -121.973102,
+              37.396589
+            ]
+          ]
+        ]
+      }
     }
-  ]
+  ],
+  "properties": {
+    "name": "Patriot",
+    "color": "#ff2a00",
+    "basemaps": []
+  }
 }

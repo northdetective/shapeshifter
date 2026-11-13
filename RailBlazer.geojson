@@ -3,7 +3,9 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {},
+      "properties": {
+        "name": "Track"
+      },
       "geometry": {
         "type": "LineString",
         "coordinates": [
@@ -333,6 +335,46 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "stroke": "#ffffff",
+        "fill": "#ffffff",
+        "name": "Station"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -121.973511,
+              37.395008
+            ],
+            [
+              -121.973465,
+              37.39491
+            ],
+            [
+              -121.973564,
+              37.39488
+            ],
+            [
+              -121.97361,
+              37.394979
+            ],
+            [
+              -121.973511,
+              37.395008
+            ]
+          ]
+        ]
+      }
     }
-  ]
+  ],
+  "properties": {
+    "name": "RailBlazer",
+    "color": "#ff2a00",
+    "basemaps": []
+  }
 }

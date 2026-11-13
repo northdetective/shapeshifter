@@ -3,7 +3,9 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {},
+      "properties": {
+        "name": "Track"
+      },
       "geometry": {
         "type": "LineString",
         "coordinates": [
@@ -425,6 +427,62 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "stroke": "#ffffff",
+        "fill": "#ffffff",
+        "name": "Station"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -121.974852,
+              37.396602
+            ],
+            [
+              -121.974773,
+              37.396637
+            ],
+            [
+              -121.974845,
+              37.396739
+            ],
+            [
+              -121.974815,
+              37.396752
+            ],
+            [
+              -121.974826,
+              37.396769
+            ],
+            [
+              -121.974805,
+              37.396779
+            ],
+            [
+              -121.974824,
+              37.396804
+            ],
+            [
+              -121.974953,
+              37.396747
+            ],
+            [
+              -121.974852,
+              37.396602
+            ]
+          ]
+        ]
+      }
     }
-  ]
+  ],
+  "properties": {
+    "name": "Gold Striker",
+    "color": "#ff2a00",
+    "basemaps": []
+  }
 }

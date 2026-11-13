@@ -3,7 +3,9 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {},
+      "properties": {
+        "name": "Track"
+      },
       "geometry": {
         "type": "LineString",
         "coordinates": [
@@ -261,6 +263,46 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "stroke": "#ffffff",
+        "fill": "#ffffff",
+        "name": "Station"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -121.974093,
+              37.394243
+            ],
+            [
+              -121.973957,
+              37.394271
+            ],
+            [
+              -121.974014,
+              37.394447
+            ],
+            [
+              -121.974151,
+              37.394419
+            ],
+            [
+              -121.974093,
+              37.394243
+            ]
+          ]
+        ]
+      }
     }
-  ]
+  ],
+  "properties": {
+    "name": "Demon (California's Great America)",
+    "color": "#ff2a00",
+    "basemaps": []
+  }
 }

@@ -3,7 +3,9 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {},
+      "properties": {
+        "name": "Track"
+      },
       "geometry": {
         "type": "LineString",
         "coordinates": [
@@ -104,12 +106,12 @@
             37.393201
           ],
           [
-            -121.97229,
-            37.393159
+            -121.972292,
+            37.393155
           ],
           [
-            -121.972188,
-            37.393133
+            -121.972165,
+            37.393124
           ],
           [
             -121.971702,
@@ -217,6 +219,46 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "stroke": "#ffffff",
+        "fill": "#ffffff",
+        "name": "Station"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -121.97149,
+              37.392929
+            ],
+            [
+              -121.971239,
+              37.392879
+            ],
+            [
+              -121.971197,
+              37.393014
+            ],
+            [
+              -121.971447,
+              37.393064
+            ],
+            [
+              -121.97149,
+              37.392929
+            ]
+          ]
+        ]
+      }
     }
-  ]
+  ],
+  "properties": {
+    "name": "Grizzly",
+    "color": "#ff2a00",
+    "basemaps": []
+  }
 }

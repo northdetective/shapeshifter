@@ -3,7 +3,9 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {},
+      "properties": {
+        "name": "Track"
+      },
       "geometry": {
         "type": "LineString",
         "coordinates": [
@@ -177,6 +179,46 @@
           ]
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "stroke": "#ffffff",
+        "fill": "#ffffff",
+        "name": "Station"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -121.970053,
+              37.394867
+            ],
+            [
+              -121.970101,
+              37.394887
+            ],
+            [
+              -121.970172,
+              37.394778
+            ],
+            [
+              -121.970124,
+              37.394758
+            ],
+            [
+              -121.970053,
+              37.394867
+            ]
+          ]
+        ]
+      }
     }
-  ]
+  ],
+  "properties": {
+    "name": "Woodstock Express",
+    "color": "#ff2a00",
+    "basemaps": []
+  }
 }
