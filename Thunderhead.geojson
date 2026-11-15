@@ -546,11 +546,11 @@
     }
   ],
   "properties": {
-    "name": "Thunderhead",
+    "name": "Thunderhead (Dollywood)",
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1794720747130",
+        "id": "custom_layer_1794721931150",
         "url": "https://tnmap.tn.gov/arcgis/rest/services/BASEMAPS/IMAGERY_WEB_MERCATOR/MapServer",
         "wmsLayer": "",
         "layerName": "IMAGERY WEB MERCATOR",
