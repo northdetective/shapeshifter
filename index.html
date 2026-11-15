@@ -266,10 +266,11 @@
                     <option value="Zippin_Pippin.geojson">Zippin Pippin (Bay Beach)</option>
                 </optgroup>
 				
-                <optgroup label="Other - Steel">
+                <optgroup label="Other">
                     <option value="arieforce.geojson">ArieForce One (Fun Spot Atlanta)</option>
 					<option value="Big_Bear_Mountain.geojson">Big Bear Mountain (Dollywood)</option>
                     <option value="Ride_to_Happiness.geojson">Ride to Happiness (Plopsaland Belgium)</option>
+					<option value="Thunderhead.geojson">Thunderhead (Dollywood)</option>
                 </optgroup>
 
                 <optgroup label="Historical/Defunct">
@@ -427,6 +428,7 @@
         if (window.L && L.DistortableImageOverlay) {
             if (L.DistortableImageOverlay.prototype.options) {
                 L.DistortableImageOverlay.prototype.options.mode = 'drag';
+                L.DistortableImageOverlay.prototype.options.maxZoom = 24;
             }
 
             const origSelect = L.DistortableImageOverlay.prototype.select;
@@ -669,7 +671,22 @@
         // Custom Layer Logic
         let customBasemaps = [];
         let customLayerCount = 1;
-        
+
+        // After every discrete zoom, re-project all distortable image overlays.
+        // Uses requestAnimationFrame so _reset() runs after Leaflet has fully
+        // committed the new pane transform — without this, the overlay pane
+        // may still hold the animation scale at the moment zoomend fires,
+        // causing the image to appear off-screen at the highest zoom levels.
+        map.on('zoomend', function() {
+            requestAnimationFrame(function() {
+                customBasemaps.forEach(function(b) {
+                    if (b.layer && typeof b.layer._reset === 'function' && b.layer._map) {
+                        try { b.layer._reset(); } catch(e) {}
+                    }
+                });
+            });
+        });
+
         function promptWMSLayerSelection(layers) {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
@@ -1324,6 +1341,7 @@
                 mode: 'drag',
                 interactive: true,
                 selected: false,
+                maxZoom: 24,
                 actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
             });
 
@@ -1383,6 +1401,7 @@
                     mode: 'drag',
                     interactive: true,
                     selected: false,
+                    maxZoom: 24,
                     actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
                 });
 
@@ -2319,6 +2338,7 @@
                         mode: 'drag',
                         interactive: true,
                         selected: false,
+                        maxZoom: 24,
                         actions: [L.DragAction, L.ScaleAction, L.DistortAction, L.RotateAction, L.FreeRotateAction, L.OpacityAction, L.RestoreAction, L.ExportAction, L.DeleteAction],
                     });
 
