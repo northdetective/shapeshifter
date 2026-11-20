@@ -449,14 +449,14 @@
     }
   ],
   "properties": {
-    "name": "Superman",
+    "name": "Superman: Ride of Steel (Six Flags America)",
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1795142334497",
+        "id": "custom_layer_1795145151820",
         "url": "https://mdgeodata.md.gov/imagery/rest/services/SixInch/SixInchImagery2019_2020/MapServer",
         "wmsLayer": "0",
-        "layerName": "SixInchImagery2019 2020",
+        "layerName": "SixInchImagery2019_2020",
         "wmtsOpts": null,
         "opacity": 1
       }
