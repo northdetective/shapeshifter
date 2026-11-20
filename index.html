@@ -773,13 +773,18 @@
                 cleanUrl = urlObj.toString();
             } catch (e) {}
 
-            let isWMTS = false;
+            const lowerUrl = url.toLowerCase();
+            const isArcGISWMS = lowerUrl.includes('wmsserver');
+            const isMapServer = lowerUrl.includes('/mapserver') && !isArcGISWMS && !url.includes('{z}');
+            const isImageServer = lowerUrl.includes('/imageserver') && !isArcGISWMS && !url.includes('{z}');
+            const isWMTS = lowerUrl.includes('wmts');
+            const isWMS = isArcGISWMS || lowerUrl.includes('wms') || (!isMapServer && !isImageServer && !url.includes('{z}') && wmsLayer);
+
             let finalWmtsFormat = null;
             let finalWmtsStyle = null;
             let finalWmtsTileMatrixSet = null;
 
-            if (wmsLayer || url.toLowerCase().includes('wms') || url.toLowerCase().includes('wmts')) {
-                isWMTS = url.toLowerCase().includes('wmts');
+            if (isWMTS || isWMS) {
                 let finalWmsLayer = null;
                 let wmtsFormat = (wmtsOpts && wmtsOpts.format) ? wmtsOpts.format : 'image/png';
                 let wmtsStyle = (wmtsOpts && wmtsOpts.style) ? wmtsOpts.style : 'default';
@@ -970,7 +975,7 @@
                     finalWmtsStyle = wmtsStyle;
                     finalWmtsTileMatrixSet = wmtsTileMatrixSet;
                 }
-            } else if (url.toLowerCase().includes('imageserver') && !url.includes('{z}')) {
+            } else if (isImageServer) {
                 if (!layerName) {
                     const urlParts = url.replace(/\/$/, '').split('/');
                     layerName = (urlParts.length > 1) ? urlParts[urlParts.length - 2].replace(/_/g, ' ') : `Custom Layer ${customLayerCount++}`;
@@ -982,7 +987,7 @@
                     f: 'image',
                     useCors: false
                 });
-            } else if (url.toLowerCase().includes('mapserver') && !url.includes('{z}')) {
+            } else if (isMapServer) {
                 let isCached = false;
                 let mapServerData = null;
                 try {
@@ -1087,6 +1092,9 @@
                     };
                     if (finalLayerIds) {
                         dynamicOpts.layers = finalLayerIds;
+                    } else if (wmsLayer && wmsLayer.trim() !== '') {
+                        const parsedIds = wmsLayer.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                        if (parsedIds.length > 0) dynamicOpts.layers = parsedIds;
                     }
                     
                     newLayer = L.esri.dynamicMapLayer(dynamicOpts);
