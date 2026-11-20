@@ -536,22 +536,14 @@
     }
   ],
   "properties": {
-    "name": "Ozark Wildcat",
+    "name": "Ozark Wildcat (Celebration City)",
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1795134320284",
+        "id": "custom_layer_1795139507818",
         "url": "https://imagery.msdis.missouri.edu/arcgis/rest/services/StatewideServices/Missouri_2015_Statewide/ImageServer",
         "wmsLayer": "",
         "layerName": "Missouri 2015 Statewide",
-        "wmtsOpts": null,
-        "opacity": 1
-      },
-      {
-        "id": "custom_layer_1795135144531",
-        "url": "https://imagery.msdis.missouri.edu/arcgis/rest/services/StatewideServices/Missouri_2008_Statewide/ImageServer",
-        "wmsLayer": "",
-        "layerName": "Missouri 2008 Statewide",
         "wmtsOpts": null,
         "opacity": 1
       }
