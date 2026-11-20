@@ -269,14 +269,17 @@
                 <optgroup label="Other">
                     <option value="arieforce.geojson">ArieForce One (Fun Spot Atlanta)</option>
 					<option value="Big_Bear_Mountain.geojson">Big Bear Mountain (Dollywood)</option>
+					<option value="Prowler.geojson">Prowler (Worlds of Fun)</option>
 					<option value="Renegade.geojson">Renegade (Valleyfair!)</option>
                     <option value="Ride_to_Happiness.geojson">Ride to Happiness (Plopsaland Belgium)</option>
 					<option value="Thunderhead.geojson">Thunderhead (Dollywood)</option>
+					<option value="Zambezi_Zinger.geojson">Zambezi Zinger (Worlds of Fun)</option>
                 </optgroup>
 
                 <optgroup label="Historical/Defunct">
 					<option value="Eagle's_Fortress.geojson">Eagle's Fortress (Everland)</option>
 					<option value="Hurricane.geojson">Hurricane (Myrtle Beach Pavilion)</option>
+					<option value="Ozark_Wildcat.geojson">Ozark Wildcat (Celebration City)</option>
                     <option value="Wildcat.geojson">Wildcat (Bertrand Island)</option>
                     <option value="XLR8.geojson">XLR8 (Six Flags Astroworld)</option>
                 </optgroup>
@@ -788,21 +791,46 @@
                     capUrl.searchParams.set('request', 'GetCapabilities');
                     capUrl.searchParams.set('service', isWMTS ? 'WMTS' : 'WMS');
                     const response = await fetch(capUrl.toString());
-                    const text = await response.text();
+                    const rawText = await response.text();
                     
+                    // Sanitize unescaped entities (like &copy;) that break standard DOMParser XML parsing
+                    const sanitizedText = rawText
+                        .replace(/&copy;/gi, '©')
+                        .replace(/&reg;/gi, '®')
+                        .replace(/&trade;/gi, '™')
+                        .replace(/&nbsp;/gi, ' ')
+                        .replace(/&mdash;/gi, '—')
+                        .replace(/&ndash;/gi, '–')
+                        .replace(/&hellip;/gi, '…')
+                        .replace(/&bull;/gi, '•')
+                        .replace(/&(?!amp;|lt;|gt;|quot;|apos;|#\d+;|#x[0-9a-fA-F]+;)/gi, '&amp;');
+
                     const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(text, "text/xml");
-                    const layerNodes = xmlDoc.getElementsByTagName("Layer");
+                    let xmlDoc = null;
+                    try {
+                        xmlDoc = parser.parseFromString(sanitizedText, "text/xml");
+                    } catch (e) {}
+
+                    let layerNodes = (xmlDoc && !xmlDoc.querySelector('parsererror')) ? Array.from(xmlDoc.getElementsByTagName("Layer")) : [];
                     
-                    for(let i=0; i<layerNodes.length; i++){
+                    // Fallback to text/html parser if XML parsing failed or found no layers
+                    if (layerNodes.length === 0) {
+                        try {
+                            const htmlDoc = parser.parseFromString(rawText, "text/html");
+                            layerNodes = Array.from(htmlDoc.querySelectorAll('*')).filter(el => (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'layer');
+                        } catch (e) {}
+                    }
+                    
+                    for (let i = 0; i < layerNodes.length; i++) {
+                        const layerNode = layerNodes[i];
                         let nameNode = null;
                         let titleNode = null;
                         let format = null;
                         let tileMatrixSet = null;
                         let style = null;
 
-                        for (let j=0; j<layerNodes[i].childNodes.length; j++) {
-                            const node = layerNodes[i].childNodes[j];
+                        for (let j = 0; j < layerNode.childNodes.length; j++) {
+                            const node = layerNode.childNodes[j];
                             if (node.nodeType !== 1) continue;
                             const localName = (node.localName || node.nodeName.split(':').pop()).toLowerCase();
                             
@@ -820,7 +848,21 @@
                                 if (setNode) tileMatrixSet = setNode.textContent.trim();
                             }
                         }
-                        if(nameNode && nameNode.textContent && nameNode.textContent.trim() !== '') {
+
+                        if (!nameNode) {
+                            nameNode = Array.from(layerNode.children).find(c => {
+                                const name = (c.localName || c.nodeName.split(':').pop()).toLowerCase();
+                                return name === 'name' || name === 'identifier';
+                            });
+                        }
+                        if (!titleNode) {
+                            titleNode = Array.from(layerNode.children).find(c => {
+                                const name = (c.localName || c.nodeName.split(':').pop()).toLowerCase();
+                                return name === 'title';
+                            });
+                        }
+
+                        if (nameNode && nameNode.textContent && nameNode.textContent.trim() !== '') {
                             availableLayers.push({
                                 name: nameNode.textContent.trim(),
                                 title: (titleNode && titleNode.textContent) ? titleNode.textContent.trim() : nameNode.textContent.trim(),
@@ -878,12 +920,22 @@
                         wmtsStyle = availableLayers[0].style;
                         wmtsTileMatrixSet = availableLayers[0].tileMatrixSet;
                     }
-                } else if (wmsLayer) {
-                    finalWmsLayer = wmsLayer;
-                    if (!layerName) layerName = wmsLayer;
+                } else if (wmsLayer && wmsLayer.trim() !== '') {
+                    finalWmsLayer = wmsLayer.trim();
+                    if (!layerName) layerName = finalWmsLayer;
                 } else {
-                    finalWmsLayer = '0';
-                    if (!layerName) layerName = `Custom Layer ${customLayerCount++}`;
+                    if (!silent) {
+                        const manualChoice = prompt("Could not automatically retrieve layer list from this WMS/WMTS service (CORS or XML format). Please enter the technical layer name/ID (e.g. 0, or layer identifier):");
+                        if (manualChoice && manualChoice.trim() !== '') {
+                            finalWmsLayer = manualChoice.trim();
+                            if (!layerName) layerName = finalWmsLayer;
+                        } else {
+                            return; // User cancelled
+                        }
+                    } else {
+                        finalWmsLayer = '0';
+                        if (!layerName) layerName = `Custom Layer ${customLayerCount++}`;
+                    }
                 }
 
                 if (!layerName) layerName = finalWmsLayer || `Custom Layer ${customLayerCount++}`;
@@ -938,7 +990,6 @@
                     jsonUrl.searchParams.set('f', 'json');
                     const response = await fetch(jsonUrl.toString());
                     mapServerData = await response.json();
-                    if (mapServerData.singleFusedMapCache) isCached = true;
                 } catch (e) {
                     if (window.L && L.esri && L.esri.request) {
                         try {
@@ -948,12 +999,23 @@
                                     else res(data);
                                 });
                             });
-                            if (mapServerData && mapServerData.singleFusedMapCache) isCached = true;
                         } catch (err2) {
                             console.warn("Could not determine map cache status, defaulting to dynamic.");
                         }
                     } else {
                         console.warn("Could not determine map cache status, defaulting to dynamic.");
+                    }
+                }
+
+                if (mapServerData && mapServerData.singleFusedMapCache) {
+                    const tileInfo = mapServerData.tileInfo;
+                    const isStandardTileSize = tileInfo && tileInfo.rows === 256 && tileInfo.cols === 256;
+                    const maxLOD = (tileInfo && tileInfo.lods && tileInfo.lods.length > 0) ? tileInfo.lods[tileInfo.lods.length - 1].level : 0;
+                    if (isStandardTileSize && maxLOD >= 17) {
+                        isCached = true;
+                    } else {
+                        console.warn("MapServer has custom tiling scheme (e.g. 512x512) or limited LODs; using dynamicMapLayer to prevent 404 tile errors.");
+                        isCached = false;
                     }
                 }
                 
