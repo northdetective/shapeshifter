@@ -208,9 +208,8 @@
                     <option value="WildOne.geojson">Wild One (Six Flags America)</option>
 					<option value="X2.geojson">X2 (Six Flags Magic Mountain)</option>
                 </optgroup>
-                </optgroup>
 
-                <optgroup label="California's Great America">
+                <optgroup label="California's Great America - Closing 2027">
                     <option value="Demon.geojson">Demon (California's Great America)</option>
                     <option value="Flight_Deck.geojson">Flight Deck (California's Great America)</option>
                     <option value="Gold_Striker.geojson">Gold Striker (California's Great America)</option>
@@ -266,25 +265,38 @@
                     <option value="Wooden_Warrior.geojson">Wooden Warrior (Quassy)</option>
                     <option value="Zippin_Pippin.geojson">Zippin Pippin (Bay Beach)</option>
                 </optgroup>
+
+                <optgroup label="Great Coasters International">
+                    <option value="American_Thunder.geojson">American Thunder (Mid-America Adventure)</option>
+					<option value="Apocalypse.geojson">Apocalypse (Six Flags Magic Mountain)</option>
+                    <option value="Gwazi.geojson">Gwazi (Busch Gardens Tampa)</option>
+                    <option value="InvadR.geojson">InvadR (Busch Gardens Williamsburg)</option>
+                    <option value="Kentucky_Rumbler.geojson">Kentucky Rumbler (Beech Bend)</option>
+                    <option value="Lightning_Racer.geojson">Lightning Racer (Hersheypark)</option>
+                    <option value="Mystic_Timbers.geojson">Mystic Timbers (Kings Island)</option>
+                    <option value="Ozark_Wildcat.geojson">Ozark Wildcat (Celebration City)</option>
+                    <option value="Prowler.geojson">Prowler (Worlds of Fun)</option>
+                    <option value="Renegade.geojson">Renegade (Valleyfair!)</option>
+                    <option value="Roar_SFDK.geojson">Roar (Six Flags Discovery Kingdom)</option>
+                    <option value="Texas_Stingray.geojson">Texas Stingray (SeaWorld San Antonio)</option>
+                    <option value="Thunderhead.geojson">Thunderhead (Dollywood)</option>
+					<option value="Wildcat_(Hersheypark).geojson">Wildcat (Hersheypark, 1996)</option>
+                    <option value="White_Lightning.geojson">White Lightning (Fun Spot Orlando)</option>
+                    <option value="Zambezi_Zinger.geojson">Zambezi Zinger (Worlds of Fun)</option>
+                </optgroup>
 				
-                <optgroup label="Other">
+                <optgroup label="Other - Steel">
                     <option value="arieforce.geojson">ArieForce One (Fun Spot Atlanta)</option>
 					<option value="Big_Bear_Mountain.geojson">Big Bear Mountain (Dollywood)</option>
-					<option value="Prowler.geojson">Prowler (Worlds of Fun)</option>
-					<option value="Renegade.geojson">Renegade (Valleyfair!)</option>
+					<option value="Eagle's_Fortress.geojson">Eagle's Fortress (Everland)</option>
                     <option value="Ride_to_Happiness.geojson">Ride to Happiness (Plopsaland Belgium)</option>
-					<option value="Thunderhead.geojson">Thunderhead (Dollywood)</option>
-					<option value="Zambezi_Zinger.geojson">Zambezi Zinger (Worlds of Fun)</option>
+					<option value="XLR8.geojson">XLR8 (Six Flags Astroworld)</option>
                 </optgroup>
 
-                <optgroup label="Historical/Defunct">
-					<option value="Eagle's_Fortress.geojson">Eagle's Fortress (Everland)</option>
+                <optgroup label="Other - Wood">
 					<option value="Hurricane.geojson">Hurricane (Myrtle Beach Pavilion)</option>
-					<option value="Ozark_Wildcat.geojson">Ozark Wildcat (Celebration City)</option>
                     <option value="Wildcat.geojson">Wildcat (Bertrand Island)</option>
 					<option value="Wild_Cat.geojson">Wildcat (Hersheypark, 1923)</option>
-					<option value="Wildcat_(Hersheypark).geojson">Wildcat (Hersheypark, 1996)</option>
-                    <option value="XLR8.geojson">XLR8 (Six Flags Astroworld)</option>
                 </optgroup>
             </select>
             <label style="display: block; margin-top: 8px; font-size: 13px; cursor: pointer;">
@@ -341,7 +353,7 @@
                 });
             </script>
             <label style="display: block; margin-top: 10px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="snap-self-toggle"> Snap drawing to start (closed line)
+                <input type="checkbox" id="snap-self-toggle" checked> Snap within same shape (close loop)
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
                 <input type="checkbox" id="snap-other-toggle"> Snap to other features
@@ -353,10 +365,10 @@
                 <input type="checkbox" id="group-move-toggle" checked> Grouped features move/rotate as one unit
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="cad-fill-polygons"> Make closed lines from .dxf files into polygons
+                <input type="checkbox" id="cad-fill-polygons"> Import closed lines as polygons (.dxf)
             </label>
             <label style="display: block; margin-top: 5px; font-size: 14px; cursor: pointer;">
-                <input type="checkbox" id="cad-units-meters"> Export .dxf in meters (leave unchecked for feet)
+                <input type="checkbox" id="cad-units-meters"> Export .dxf in meters (feet by default)
             </label>
         </div>
 
@@ -716,8 +728,9 @@
                 modal.style.flexDirection = 'column';
 
                 const title = document.createElement('h3');
-                title.innerText = 'Select WMS Layer';
+                title.innerText = 'Select Map Layer';
                 title.style.marginTop = '0';
+                title.style.marginBottom = '15px';
                 modal.appendChild(title);
 
                 const select = document.createElement('select');
@@ -726,14 +739,23 @@
                 select.style.marginBottom = '15px';
                 select.style.fontSize = '14px';
                 
+                let defaultIndex = -1;
                 layers.forEach((l, index) => {
                     const opt = document.createElement('option');
                     opt.value = index.toString();
                     opt.innerText = l.title !== l.name ? `${l.title} (${l.name})` : l.name;
                     select.appendChild(opt);
+
+                    const titleLower = (l.title || '').toLowerCase();
+                    const nameLower = (l.name || '').toLowerCase();
+                    const isIncompatible = titleLower.includes('state plane') || nameLower.includes('state plane') || (l.tileMatrixSet && l.tileMatrixSet.includes('3754'));
+                    if (defaultIndex === -1 && !isIncompatible) {
+                        defaultIndex = index;
+                    }
                 });
                 modal.appendChild(select);
-                if (layers.length > 0) select.selectedIndex = 0;
+                if (defaultIndex === -1) defaultIndex = 0;
+                if (layers.length > 0) select.selectedIndex = defaultIndex;
 
                 const btnDiv = document.createElement('div');
                 btnDiv.style.display = 'flex';
@@ -780,20 +802,26 @@
             const isArcGISWMS = lowerUrl.includes('wmsserver');
             const isMapServer = lowerUrl.includes('/mapserver') && !isArcGISWMS && !url.includes('{z}');
             const isImageServer = lowerUrl.includes('/imageserver') && !isArcGISWMS && !url.includes('{z}');
-            const isWMTS = lowerUrl.includes('wmts');
-            const isWMS = isArcGISWMS || lowerUrl.includes('wms') || (!isMapServer && !isImageServer && !url.includes('{z}') && wmsLayer);
+            const isWMTS = lowerUrl.includes('wmts') && !url.includes('{z}');
+            const isWMS = (isArcGISWMS || lowerUrl.includes('wms') || (!isMapServer && !isImageServer && !url.includes('{z}') && wmsLayer)) && !url.includes('{z}');
 
             let finalWmtsFormat = null;
             let finalWmtsStyle = null;
             let finalWmtsTileMatrixSet = null;
+            let finalWmtsTemplate = null;
+            let finalWmtsMaxZoom = null;
+            let finalWmtsBbox = (wmtsOpts && wmtsOpts.bbox) ? wmtsOpts.bbox : null;
 
             if (isWMTS || isWMS) {
                 let finalWmsLayer = null;
                 let wmtsFormat = (wmtsOpts && wmtsOpts.format) ? wmtsOpts.format : 'image/png';
                 let wmtsStyle = (wmtsOpts && wmtsOpts.style) ? wmtsOpts.style : 'default';
                 let wmtsTileMatrixSet = (wmtsOpts && wmtsOpts.tileMatrixSet) ? wmtsOpts.tileMatrixSet : 'default028mm';
+                let wmtsTemplate = (wmtsOpts && wmtsOpts.template) ? wmtsOpts.template : null;
+                let wmtsMaxZoom = (wmtsOpts && wmtsOpts.maxNativeZoom) ? wmtsOpts.maxNativeZoom : 21;
 
                 let availableLayers = [];
+                let getTileEndpoint = null;
                 try {
                     const capUrl = new URL(cleanUrl);
                     capUrl.searchParams.set('request', 'GetCapabilities');
@@ -828,32 +856,94 @@
                             layerNodes = Array.from(htmlDoc.querySelectorAll('*')).filter(el => (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'layer');
                         } catch (e) {}
                     }
+
+                    if (xmlDoc) {
+                        try {
+                            const operations = Array.from(xmlDoc.getElementsByTagName('*')).filter(el => 
+                                (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'operation' && 
+                                (el.getAttribute('name') || '').toLowerCase() === 'gettile'
+                            );
+                            if (operations.length > 0) {
+                                const getNodes = Array.from(operations[0].getElementsByTagName('*')).filter(el => 
+                                    (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'get'
+                                );
+                                for (const g of getNodes) {
+                                    const href = g.getAttribute('xlink:href') || g.getAttribute('href');
+                                    if (href) {
+                                        getTileEndpoint = href;
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (e) {}
+                    }
                     
                     for (let i = 0; i < layerNodes.length; i++) {
                         const layerNode = layerNodes[i];
                         let nameNode = null;
                         let titleNode = null;
                         let format = null;
-                        let tileMatrixSet = null;
+                        let tileMatrixSets = [];
                         let style = null;
+                        let resourceUrlTemplate = null;
+                        let layerBbox = null;
 
-                        for (let j = 0; j < layerNode.childNodes.length; j++) {
-                            const node = layerNode.childNodes[j];
-                            if (node.nodeType !== 1) continue;
+                        const allLayerDescendants = Array.from(layerNode.getElementsByTagName ? layerNode.getElementsByTagName('*') : layerNode.querySelectorAll('*'));
+                        for (let j = 0; j < allLayerDescendants.length; j++) {
+                            const node = allLayerDescendants[j];
                             const localName = (node.localName || node.nodeName.split(':').pop()).toLowerCase();
                             
-                            if (localName === 'name' || localName === 'identifier') {
-                                if (!nameNode) nameNode = node;
+                            if (localName === 'identifier' || localName === 'name') {
+                                if (node.parentNode === layerNode && !nameNode) {
+                                    nameNode = node;
+                                }
                             } else if (localName === 'title') {
-                                if (!titleNode) titleNode = node;
+                                if (node.parentNode === layerNode && !titleNode) {
+                                    titleNode = node;
+                                }
                             } else if (localName === 'format' && !format) {
                                 format = node.textContent.trim();
-                            } else if (localName === 'style') {
-                                const idNode = Array.from(node.childNodes).find(n => n.nodeType === 1 && (n.localName || n.nodeName.split(':').pop()).toLowerCase() === 'identifier');
-                                if (idNode) style = idNode.textContent.trim();
-                            } else if (localName === 'tilematrixsetlink') {
-                                const setNode = Array.from(node.childNodes).find(n => n.nodeType === 1 && (n.localName || n.nodeName.split(':').pop()).toLowerCase() === 'tilematrixset');
-                                if (setNode) tileMatrixSet = setNode.textContent.trim();
+                            } else if (localName === 'style' && !style) {
+                                const idChild = Array.from(node.children).find(n => (n.localName || n.nodeName.split(':').pop()).toLowerCase() === 'identifier');
+                                if (idChild) style = idChild.textContent.trim();
+                            } else if (localName === 'tilematrixset') {
+                                const tms = node.textContent.trim();
+                                if (tms && !tileMatrixSets.includes(tms)) tileMatrixSets.push(tms);
+                            } else if (localName === 'resourceurl') {
+                                const resType = (node.getAttribute('resourceType') || node.getAttribute('resourcetype') || '').toLowerCase();
+                                if (!resType || resType === 'tile') {
+                                    const tmpl = node.getAttribute('template');
+                                    if (tmpl) {
+                                        const fmt = (node.getAttribute('format') || '').toLowerCase();
+                                        if (!resourceUrlTemplate || fmt.includes('png') || fmt.includes('jpeg') || fmt.includes('jpg')) {
+                                            resourceUrlTemplate = tmpl;
+                                            if (fmt) format = fmt;
+                                        }
+                                    }
+                                }
+                            } else if (localName === 'wgs84boundingbox' || localName === 'latlongboundingbox' || localName === 'ex_geographicboundingbox') {
+                                let lowerStr = '';
+                                let upperStr = '';
+                                Array.from(node.children).forEach(c => {
+                                    const cName = (c.localName || c.nodeName.split(':').pop()).toLowerCase();
+                                    if (cName === 'lowercorner') lowerStr = c.textContent.trim();
+                                    else if (cName === 'uppercorner') upperStr = c.textContent.trim();
+                                    else if (cName === 'westboundlongitude') lowerStr = c.textContent.trim() + ' ' + lowerStr;
+                                    else if (cName === 'southboundlatitude') lowerStr = lowerStr + ' ' + c.textContent.trim();
+                                    else if (cName === 'eastboundlongitude') upperStr = c.textContent.trim() + ' ' + upperStr;
+                                    else if (cName === 'northboundlatitude') upperStr = upperStr + ' ' + c.textContent.trim();
+                                });
+                                if (lowerStr && upperStr) {
+                                    const lp = lowerStr.split(/\s+/).map(Number);
+                                    const up = upperStr.split(/\s+/).map(Number);
+                                    if (lp.length >= 2 && up.length >= 2 && !isNaN(lp[0]) && !isNaN(lp[1]) && !isNaN(up[0]) && !isNaN(up[1])) {
+                                        const minLon = Math.min(lp[0], up[0]);
+                                        const maxLon = Math.max(lp[0], up[0]);
+                                        const minLat = Math.min(lp[1], up[1]);
+                                        const maxLat = Math.max(lp[1], up[1]);
+                                        layerBbox = [[minLat, minLon], [maxLat, maxLon]];
+                                    }
+                                }
                             }
                         }
 
@@ -871,14 +961,63 @@
                         }
 
                         if (nameNode && nameNode.textContent && nameNode.textContent.trim() !== '') {
+                            let chosenTileMatrixSet = tileMatrixSets.length > 0 ? tileMatrixSets[0] : 'default028mm';
+                            const mercatorSet = tileMatrixSets.find(tms => /(3857|webmercator|googlemapscompatible|pseudo-mercator|default028mm)/i.test(tms));
+                            if (mercatorSet) {
+                                chosenTileMatrixSet = mercatorSet;
+                            }
+
+                            let layerMaxZoom = 21;
+                            const zoomMatch = chosenTileMatrixSet.match(/[-_](\d{1,2})$/);
+                            if (zoomMatch) {
+                                layerMaxZoom = parseInt(zoomMatch[1], 10);
+                            }
+
                             availableLayers.push({
                                 name: nameNode.textContent.trim(),
                                 title: (titleNode && titleNode.textContent) ? titleNode.textContent.trim() : nameNode.textContent.trim(),
-                                format: format || (isWMTS ? 'image/jpeg' : 'image/png'),
+                                format: format || (isWMTS ? 'image/png' : 'image/png'),
                                 style: style || 'default',
-                                tileMatrixSet: tileMatrixSet || 'default028mm'
+                                tileMatrixSet: chosenTileMatrixSet,
+                                resourceUrlTemplate: resourceUrlTemplate,
+                                maxNativeZoom: layerMaxZoom,
+                                bbox: layerBbox
                             });
                         }
+                    }
+
+                    if (xmlDoc && availableLayers.length > 0) {
+                        try {
+                            const tmsNodes = Array.from(xmlDoc.getElementsByTagName('*')).filter(el => 
+                                (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'tilematrixset' &&
+                                el.parentNode && (el.parentNode.localName || el.parentNode.nodeName.split(':').pop()).toLowerCase() !== 'tilematrixsetlink'
+                            );
+                            const tmsMaxZoomMap = {};
+                            tmsNodes.forEach(tNode => {
+                                let tmsId = null;
+                                let highestZoom = 0;
+                                Array.from(tNode.children).forEach(c => {
+                                    const cName = (c.localName || c.nodeName.split(':').pop()).toLowerCase();
+                                    if (cName === 'identifier' && !tmsId) {
+                                        tmsId = c.textContent.trim();
+                                    } else if (cName === 'tilematrix') {
+                                        const matrixIdNode = Array.from(c.children).find(m => (m.localName || m.nodeName.split(':').pop()).toLowerCase() === 'identifier');
+                                        if (matrixIdNode) {
+                                            const zVal = parseInt(matrixIdNode.textContent.trim(), 10);
+                                            if (!isNaN(zVal) && zVal > highestZoom) highestZoom = zVal;
+                                        }
+                                    }
+                                });
+                                if (tmsId && highestZoom > 0) {
+                                    tmsMaxZoomMap[tmsId] = highestZoom;
+                                }
+                            });
+                            availableLayers.forEach(l => {
+                                if (tmsMaxZoomMap[l.tileMatrixSet]) {
+                                    l.maxNativeZoom = tmsMaxZoomMap[l.tileMatrixSet];
+                                }
+                            });
+                        } catch (e) {}
                     }
                 } catch (e) {
                     console.warn("Could not auto-detect WMS/WMTS layer name (CORS or network error).");
@@ -906,6 +1045,9 @@
                         wmtsFormat = matchedLayer.format;
                         wmtsStyle = matchedLayer.style;
                         wmtsTileMatrixSet = matchedLayer.tileMatrixSet;
+                        if (matchedLayer.resourceUrlTemplate) wmtsTemplate = matchedLayer.resourceUrlTemplate;
+                        if (matchedLayer.maxNativeZoom) wmtsMaxZoom = matchedLayer.maxNativeZoom;
+                        if (matchedLayer.bbox) finalWmtsBbox = matchedLayer.bbox;
                     } else if (availableLayers.length > 1 && !silent) {
                         const userChoice = await promptWMSLayerSelection(availableLayers);
                         if (userChoice !== null) {
@@ -916,17 +1058,35 @@
                                 wmtsFormat = selectedLayerObj.format;
                                 wmtsStyle = selectedLayerObj.style;
                                 wmtsTileMatrixSet = selectedLayerObj.tileMatrixSet;
+                                if (selectedLayerObj.resourceUrlTemplate) wmtsTemplate = selectedLayerObj.resourceUrlTemplate;
+                                if (selectedLayerObj.maxNativeZoom) wmtsMaxZoom = selectedLayerObj.maxNativeZoom;
+                                if (selectedLayerObj.bbox) finalWmtsBbox = selectedLayerObj.bbox;
+
+                                const titleLower = (selectedLayerObj.title || '').toLowerCase();
+                                const nameLower = (selectedLayerObj.name || '').toLowerCase();
+                                const isIncompatible = titleLower.includes('state plane') || nameLower.includes('state plane') || (selectedLayerObj.tileMatrixSet && selectedLayerObj.tileMatrixSet.includes('3754'));
+                                if (isIncompatible) {
+                                    alert(`Layer "${selectedLayerObj.title}" uses a State Plane coordinate system (${selectedLayerObj.tileMatrixSet || 'EPSG:3754'}) that is incompatible with Web Mercator. Tiles will not load.`);
+                                }
                             }
                         } else {
                             return; // User cancelled
                         }
                     } else {
-                        // Single layer or silent fallback
-                        finalWmsLayer = availableLayers[0].name;
-                        if (!explicitLayerName) layerName = availableLayers[0].title || finalWmsLayer;
-                        wmtsFormat = availableLayers[0].format;
-                        wmtsStyle = availableLayers[0].style;
-                        wmtsTileMatrixSet = availableLayers[0].tileMatrixSet;
+                        // Single layer or silent fallback: prefer compatible layer if possible
+                        const preferredLayer = availableLayers.find(l => {
+                            const t = l.title.toLowerCase();
+                            const n = l.name.toLowerCase();
+                            return !t.includes('state plane') && !n.includes('state plane');
+                        }) || availableLayers[0];
+                        finalWmsLayer = preferredLayer.name;
+                        if (!explicitLayerName) layerName = preferredLayer.title || finalWmsLayer;
+                        wmtsFormat = preferredLayer.format;
+                        wmtsStyle = preferredLayer.style;
+                        wmtsTileMatrixSet = preferredLayer.tileMatrixSet;
+                        if (preferredLayer.resourceUrlTemplate) wmtsTemplate = preferredLayer.resourceUrlTemplate;
+                        if (preferredLayer.maxNativeZoom) wmtsMaxZoom = preferredLayer.maxNativeZoom;
+                        if (preferredLayer.bbox) finalWmtsBbox = preferredLayer.bbox;
                     }
                 } else if (wmsLayer && wmsLayer.trim() !== '') {
                     finalWmsLayer = wmsLayer.trim();
@@ -955,13 +1115,56 @@
                 }
 
                 if (isWMTS) {
-                    const separator = cleanUrl.includes('?') ? '&' : '?';
-                    const wmtsUrl = `${cleanUrl}${separator}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${finalWmsLayer}&STYLE=${wmtsStyle}&FORMAT=${wmtsFormat}&TILEMATRIXSET=${wmtsTileMatrixSet}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
-                    newLayer = L.tileLayer(wmtsUrl, {
+                    let wmtsUrl = null;
+                    if (wmtsTemplate) {
+                        let tmpl = wmtsTemplate;
+                        try {
+                            const inputUrlObj = new URL(url);
+                            const tmplUrlObj = new URL(tmpl, cleanUrl);
+                            inputUrlObj.searchParams.forEach((val, k) => {
+                                const lk = k.toLowerCase();
+                                if (['key', 'token', 'apikey', 'api_key', 'auth', 'access_token'].includes(lk)) {
+                                    if (!tmplUrlObj.searchParams.has(k)) {
+                                        tmplUrlObj.searchParams.set(k, val);
+                                    }
+                                }
+                            });
+                            tmpl = decodeURI(tmplUrlObj.toString()).replace(/%7B/gi, '{').replace(/%7D/gi, '}');
+                        } catch (e) {}
+
+                        tmpl = tmpl
+                            .replace(/\{tilematrix\}/gi, '{z}')
+                            .replace(/\{tilecol\}/gi, '{x}')
+                            .replace(/\{tilerow\}/gi, '{y}')
+                            .replace(/\{style\}/gi, wmtsStyle || 'default')
+                            .replace(/\{tilematrixset\}/gi, wmtsTileMatrixSet || 'default028mm')
+                            .replace(/\{(?:layer|layeridentifier)\}/gi, finalWmsLayer)
+                            .replace(/\{format\}/gi, (wmtsFormat && wmtsFormat.includes('/')) ? wmtsFormat.split('/').pop() : (wmtsFormat || 'png'));
+
+                        wmtsUrl = tmpl;
+                    } else {
+                        let baseUrl = getTileEndpoint || cleanUrl;
+                        try {
+                            const baseObj = new URL(baseUrl);
+                            baseObj.pathname = baseObj.pathname.replace(/\/capabilities(?:\.xml)?$/i, '').replace(/\/wmtscapabilities\.xml$/i, '');
+                            baseUrl = baseObj.toString();
+                        } catch (e) {
+                            baseUrl = baseUrl.replace(/\/capabilities(?:\.xml)?(\?|$)/i, '$1').replace(/\/wmtscapabilities\.xml(\?|$)/i, '$1');
+                        }
+
+                        const separator = baseUrl.includes('?') ? '&' : '?';
+                        wmtsUrl = `${baseUrl}${separator}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${finalWmsLayer}&STYLE=${wmtsStyle}&FORMAT=${wmtsFormat}&TILEMATRIXSET=${wmtsTileMatrixSet}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
+                    }
+
+                    const wmtsTileOpts = {
                         attribution: 'Custom WMTS',
-                        maxNativeZoom: 19,
+                        maxNativeZoom: wmtsMaxZoom || 21,
                         maxZoom: 24
-                    });
+                    };
+                    if (finalWmtsBbox) {
+                        wmtsTileOpts.bounds = L.latLngBounds(finalWmtsBbox);
+                    }
+                    newLayer = L.tileLayer(wmtsUrl, wmtsTileOpts);
                 } else {
                     newLayer = L.tileLayer.wms(cleanUrl, {
                         layers: finalWmsLayer, 
@@ -977,6 +1180,8 @@
                     finalWmtsFormat = wmtsFormat;
                     finalWmtsStyle = wmtsStyle;
                     finalWmtsTileMatrixSet = wmtsTileMatrixSet;
+                    finalWmtsTemplate = wmtsTemplate;
+                    finalWmtsMaxZoom = wmtsMaxZoom;
                 }
             } else if (isImageServer) {
                 if (!layerName) {
@@ -1108,7 +1313,7 @@
                 }
                 newLayer = L.tileLayer(url, {
                     attribution: 'Custom Tile Layer',
-                    maxNativeZoom: 19,
+                    maxNativeZoom: 21,
                     maxZoom: 24
                 });
             }
@@ -1121,9 +1326,29 @@
 
             layerControl.addBaseLayer(newLayer, layerName);
             newLayer.addTo(map);
+            if (finalWmtsBbox && !silent) {
+                const lBounds = L.latLngBounds(finalWmtsBbox);
+                if (!map.getBounds().intersects(lBounds)) {
+                    map.fitBounds(lBounds);
+                }
+            }
             
             const id = 'custom_layer_' + Date.now();
-            customBasemaps.push({ id, url, wmsLayer, layerName, layer: newLayer, wmtsOpts: isWMTS ? {format: finalWmtsFormat, style: finalWmtsStyle, tileMatrixSet: finalWmtsTileMatrixSet} : null });
+            customBasemaps.push({ 
+                id, 
+                url, 
+                wmsLayer, 
+                layerName, 
+                layer: newLayer, 
+                wmtsOpts: isWMTS ? {
+                    format: finalWmtsFormat, 
+                    style: finalWmtsStyle, 
+                    tileMatrixSet: finalWmtsTileMatrixSet,
+                    template: finalWmtsTemplate,
+                    maxNativeZoom: finalWmtsMaxZoom,
+                    bbox: finalWmtsBbox
+                } : null 
+            });
             renderCustomBasemapsList();
 
             if (!silent) alert(`Added ${layerName} to map and layer controls!`);
@@ -1680,18 +1905,152 @@
             }
         }, 500);
 
-        // Toggle Snap Logic
+        // Toggle Snap Logic & Overhaul
         const snapSelfToggle = document.getElementById('snap-self-toggle');
         const snapOtherToggle = document.getElementById('snap-other-toggle');
+
         function updateSnap() {
+            const snapSelf = snapSelfToggle ? snapSelfToggle.checked : true;
+            const snapOther = snapOtherToggle ? snapOtherToggle.checked : false;
             map.pm.setGlobalOptions({
-                snappable: snapSelfToggle.checked || snapOtherToggle.checked,
-                snapDistance: 20,
-                snapToSelf: snapSelfToggle.checked
+                snappable: snapSelf || snapOther,
+                snapDistance: 20
             });
         }
         snapSelfToggle.addEventListener('change', updateSnap);
         snapOtherToggle.addEventListener('change', updateSnap);
+
+        // Helper to collect vertex markers of the shape being edited or drawn
+        function getSelfVertexMarkers(inst) {
+            if (!inst) return [];
+            if (inst._markers) {
+                // In Edit mode, filter out middle markers (which have leftM / rightM)
+                return (inst._markers || []).flat(Infinity).filter(m => m && typeof m.getLatLng === 'function' && !m.leftM && !m.rightM);
+            }
+            return [];
+        }
+
+        // Patch _createSnapList on L.PM.Edit and L.PM.Draw prototypes to include self vertex markers when snapSelf is enabled
+        function patchInstSnapList(inst) {
+            if (!inst || !inst._snapList) return;
+            const snapSelf = snapSelfToggle ? snapSelfToggle.checked : true;
+            if (snapSelf) {
+                const selfMarkers = getSelfVertexMarkers(inst);
+                selfMarkers.forEach(m => {
+                    if (!inst._snapList.includes(m)) {
+                        inst._snapList.push(m);
+                    }
+                });
+            }
+        }
+
+        const origEditCreateSnapList = L.PM.Edit.prototype._createSnapList;
+        L.PM.Edit.prototype._createSnapList = function() {
+            origEditCreateSnapList.call(this);
+            patchInstSnapList(this);
+        };
+
+        const origDrawCreateSnapList = L.PM.Draw.prototype._createSnapList;
+        L.PM.Draw.prototype._createSnapList = function() {
+            origDrawCreateSnapList.call(this);
+            patchInstSnapList(this);
+        };
+
+        // Filter candidate snap list per marker so:
+        // 1. Marker never snaps to itself
+        // 2. Vertices do not collapse into immediate adjacent line neighbors (idx ± 1)
+        // 3. Vertices can snap to non-adjacent vertices within the same shape (especially start to end to maintain complete loop polyline)
+        // 4. Snapping to other features ONLY occurs if snapOtherToggle is checked
+        function filterSnapListForMarker(inst, draggedMarker) {
+            if (!inst._snapList) return [];
+            const snapSelf = snapSelfToggle ? snapSelfToggle.checked : true;
+            const snapOther = snapOtherToggle ? snapOtherToggle.checked : false;
+
+            const selfMarkers = getSelfVertexMarkers(inst);
+            const draggedIdx = selfMarkers.indexOf(draggedMarker);
+
+            return inst._snapList.filter(candidate => {
+                // Never snap to the marker currently being dragged
+                if (candidate === draggedMarker) return false;
+
+                const candidateIdx = selfMarkers.indexOf(candidate);
+                const isSelfMarker = candidateIdx !== -1;
+
+                if (isSelfMarker) {
+                    if (!snapSelf) return false;
+
+                    // In Edit mode: do not snap to immediate adjacent line neighbors (idx ± 1)
+                    // Note: for start (0) and end (len-1), |0 - (len-1)| >= 2, so loop closure is preserved!
+                    if (draggedIdx !== -1) {
+                        if (Math.abs(draggedIdx - candidateIdx) <= 1) return false;
+                    }
+
+                    // In Draw mode: draggedMarker is this._hintMarker (draggedIdx === -1).
+                    // Do not snap to the vertex that was just clicked/added
+                    if (inst._markers && inst._markers.length > 0 && draggedIdx === -1) {
+                        if (candidate === inst._markers[inst._markers.length - 1]) return false;
+                    }
+
+                    return true;
+                }
+
+                // Candidate is from another feature/layer on the map
+                return snapOther;
+            });
+        }
+
+        const origEditHandleSnapping = L.PM.Edit.prototype._handleSnapping;
+        L.PM.Edit.prototype._handleSnapping = function(t) {
+            const e = t ? t.target : null;
+            if (!e) return false;
+            if (this._snapList === void 0) {
+                this._createSnapList();
+            }
+            patchInstSnapList(this);
+
+            const oldSnapList = this._snapList;
+            this._snapList = filterSnapListForMarker(this, e);
+            try {
+                return origEditHandleSnapping.call(this, t);
+            } finally {
+                this._snapList = oldSnapList;
+            }
+        };
+
+        const origDrawHandleSnapping = L.PM.Draw.prototype._handleSnapping;
+        L.PM.Draw.prototype._handleSnapping = function(t) {
+            const e = t ? t.target : this._hintMarker;
+            if (!e) return false;
+            if (this._snapList === void 0) {
+                this._createSnapList();
+            }
+            patchInstSnapList(this);
+
+            const oldSnapList = this._snapList;
+            this._snapList = filterSnapListForMarker(this, e);
+            try {
+                return origDrawHandleSnapping.call(this, t);
+            } finally {
+                this._snapList = oldSnapList;
+            }
+        };
+
+        // Track when line drawing intentionally finishes onto the starting vertex
+        let drawLineClosedLoopIntent = false;
+        const origDrawLineCreateVertex = L.PM.Draw.Line.prototype._createVertex;
+        L.PM.Draw.Line.prototype._createVertex = function(t) {
+            if (this._hintMarker && this._layer) {
+                const curLatLng = this._hintMarker.getLatLng();
+                const coords = this._layer.getLatLngs();
+                if (coords.length > 1 && curLatLng.equals(coords[0])) {
+                    drawLineClosedLoopIntent = true;
+                } else {
+                    drawLineClosedLoopIntent = false;
+                }
+            }
+            return origDrawLineCreateVertex.call(this, t);
+        };
+
         updateSnap(); // initialize
 
         map.on('pm:drawstart', (e) => {
@@ -1708,17 +2067,23 @@
         map.on('pm:create', (e) => {
             let layer = e.layer;
             
-            // Enforce perfect mathematical closure if Snap to Start is on
+            // Mathematically close loop only if Snap within same shape is ON and closure was intended or vertices snapped
             if (layer.getLatLngs && (e.shape === 'Line' || e.shape === 'Polyline')) {
-                const snapSelfToggle = document.getElementById('snap-self-toggle');
-                if (snapSelfToggle && snapSelfToggle.checked) {
+                const snapSelf = snapSelfToggle && snapSelfToggle.checked;
+                if (snapSelf) {
                     const latlngs = layer.getLatLngs();
                     if (latlngs.length > 2) {
                         const first = latlngs[0];
                         const last = latlngs[latlngs.length - 1];
                         
-                        // Unconditionally mathematically close the loop when Finish is clicked
-                        if (first.lat !== last.lat || first.lng !== last.lng) {
+                        const pFirst = map.latLngToContainerPoint(first);
+                        const pLast = map.latLngToContainerPoint(last);
+                        const snapDist = map.pm.getGlobalOptions().snapDistance || 25;
+
+                        const isIntendedClose = drawLineClosedLoopIntent || (pFirst.distanceTo(pLast) <= snapDist);
+                        drawLineClosedLoopIntent = false;
+
+                        if (isIntendedClose && (first.lat !== last.lat || first.lng !== last.lng)) {
                             latlngs.push(L.latLng(first.lat, first.lng));
                             layer.setLatLngs(latlngs);
                         }
