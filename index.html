@@ -268,9 +268,12 @@
 
                 <optgroup label="Great Coasters International">
                     <option value="American_Thunder.geojson">American Thunder (Mid-America Adventure)</option>
-					<option value="Apocalypse.geojson">Apocalypse (Six Flags Magic Mountain)</option>
+					<option value="Apocalypse.geojson">Apocalypse: The Ride (Six Flags Magic Mountain)</option>
+					<option value="El_Toro_Plohn.geojson">El Toro (Freizeitpark Plohn)</option>
                     <option value="Gwazi.geojson">Gwazi (Busch Gardens Tampa)</option>
+					<option value="Heidi_The_Ride.geojson">Heidi: The Ride (Plopsaland Belgium)</option>
                     <option value="InvadR.geojson">InvadR (Busch Gardens Williamsburg)</option>
+					<option value="Joris.geojson">Joris en de Draak (Efteling)</option>
                     <option value="Kentucky_Rumbler.geojson">Kentucky Rumbler (Beech Bend)</option>
                     <option value="Lightning_Racer.geojson">Lightning Racer (Hersheypark)</option>
                     <option value="Mystic_Timbers.geojson">Mystic Timbers (Kings Island)</option>
@@ -278,9 +281,15 @@
                     <option value="Prowler.geojson">Prowler (Worlds of Fun)</option>
                     <option value="Renegade.geojson">Renegade (Valleyfair!)</option>
                     <option value="Roar_SFDK.geojson">Roar (Six Flags Discovery Kingdom)</option>
+					<option value="Roaring_Timbers.geojson">Roaring Timbers(Sun World Hon Thom)</option>
                     <option value="Texas_Stingray.geojson">Texas Stingray (SeaWorld San Antonio)</option>
+					<option value="Thunderbird.geojson">Thunderbird (PowerPark)</option>
                     <option value="Thunderhead.geojson">Thunderhead (Dollywood)</option>
+					<option value="Troy.geojson">Troy (Toverland)</option>
+					<option value="Wild_Buffalo.geojson">Wild Buffalo (Mer de Sable)</option>
+					<option value="Wicker_Man.geojson">Wicker Man (Alton Towers)</option>
 					<option value="Wildcat_(Hersheypark).geojson">Wildcat (Hersheypark, 1996)</option>
+					<option value="Werewolf.geojson">Wilkołak/Werewolf (Majaland Kownaty)</option>
                     <option value="White_Lightning.geojson">White Lightning (Fun Spot Orlando)</option>
 					<option value="Wodan.geojson">Wodan (Europa Park)</option>
                     <option value="Zambezi_Zinger.geojson">Zambezi Zinger (Worlds of Fun)</option>
@@ -539,6 +548,126 @@
 
         // 1. Initialize Map
         const canvasRenderer = L.canvas({ tolerance: 25 });
+
+        // ----------------------------------------------------
+        // Robust Tile Fallback Engine (prevents "Map data not yet available", 404s, and handles over-zooming)
+        // ----------------------------------------------------
+        function isEsriPlaceholder(img) {
+            try {
+                if (!img || img.naturalWidth !== 256 || img.naturalHeight !== 256) return false;
+                const canvas = document.createElement('canvas');
+                canvas.width = 1;
+                canvas.height = 1;
+                const ctx = canvas.getContext('2d');
+                // Esri placeholder has solid flat gray background: RGB around 204 (+/-4)
+                ctx.drawImage(img, 10, 10, 1, 1, 0, 0, 1, 1);
+                const p1 = ctx.getImageData(0, 0, 1, 1).data;
+                if (Math.abs(p1[0] - 204) <= 6 && Math.abs(p1[1] - 204) <= 6 && Math.abs(p1[2] - 204) <= 6) {
+                    // Check opposite corner (245, 245) to ensure it is the identical uniform flat gray
+                    ctx.drawImage(img, 245, 245, 1, 1, 0, 0, 1, 1);
+                    const p2 = ctx.getImageData(0, 0, 1, 1).data;
+                    if (p2[0] === p1[0] && p2[1] === p1[1] && p2[2] === p1[2]) {
+                        return true;
+                    }
+                }
+            } catch (e) {
+                // If canvas is tainted or cannot be sampled, safely treat as regular image
+            }
+            return false;
+        }
+
+        function loadFallbackTile(layer, coords, currentZoom, onDone) {
+            if (currentZoom <= 1) {
+                onDone(new Error('Fallback limit reached'));
+                return;
+            }
+            const ancestorZoom = currentZoom - 1;
+            const scaleDiff = Math.pow(2, coords.z - ancestorZoom);
+            const ancestorCoords = {
+                x: Math.floor(coords.x / scaleDiff),
+                y: Math.floor(coords.y / scaleDiff),
+                z: ancestorZoom
+            };
+            const ancestorUrl = layer.getTileUrl(ancestorCoords);
+            const parentImg = new Image();
+            const isEsri = layer._url && layer._url.includes('arcgisonline.com');
+            if (isEsri) parentImg.crossOrigin = 'anonymous';
+
+            parentImg.onload = function() {
+                if (isEsri && ancestorZoom >= 18 && isEsriPlaceholder(parentImg)) {
+                    // Ancestor is also placeholder, recurse up to find highest real resolution
+                    loadFallbackTile(layer, coords, ancestorZoom, onDone);
+                    return;
+                }
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 256;
+                    canvas.height = 256;
+                    const ctx = canvas.getContext('2d');
+                    const subSize = 256 / scaleDiff;
+                    const sx = (coords.x % scaleDiff) * subSize;
+                    const sy = (coords.y % scaleDiff) * subSize;
+                    ctx.drawImage(parentImg, sx, sy, subSize, subSize, 0, 0, 256, 256);
+                    onDone(null, canvas);
+                } catch(e) {
+                    onDone(e);
+                }
+            };
+            parentImg.onerror = function() {
+                loadFallbackTile(layer, coords, ancestorZoom, onDone);
+            };
+            parentImg.src = ancestorUrl;
+        }
+
+        const origCreateTile = L.TileLayer.prototype.createTile;
+        L.TileLayer.prototype.createTile = function(coords, done) {
+            const tile = document.createElement('img');
+            const self = this;
+            const isEsri = self._url && self._url.includes('arcgisonline.com');
+
+            if (isEsri) {
+                tile.crossOrigin = 'anonymous';
+            } else if (self.options.crossOrigin || self.options.crossOrigin === '') {
+                tile.crossOrigin = self.options.crossOrigin === true ? '' : self.options.crossOrigin;
+            }
+
+            tile.alt = '';
+            tile.setAttribute('role', 'presentation');
+
+            let fallbackTriggered = false;
+            function triggerFallback() {
+                if (fallbackTriggered) return;
+                fallbackTriggered = true;
+                loadFallbackTile(self, coords, coords.z, function(err, canvas) {
+                    if (!err && canvas) {
+                        try {
+                            tile.src = canvas.toDataURL();
+                            done(null, tile);
+                        } catch(e) {
+                            done(err, tile);
+                        }
+                    } else {
+                        done(err || new Error('Tile load failed'), tile);
+                    }
+                });
+            }
+
+            L.DomEvent.on(tile, 'load', function() {
+                if (isEsri && coords.z >= 18 && isEsriPlaceholder(tile)) {
+                    triggerFallback();
+                    return;
+                }
+                done(null, tile);
+            });
+
+            L.DomEvent.on(tile, 'error', function(err) {
+                // If tile fails (404, network error, etc.), trigger parent fallback
+                triggerFallback();
+            });
+
+            tile.src = self.getTileUrl(coords);
+            return tile;
+        };
         
         // Basemaps
         const esriImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -571,7 +700,9 @@
             maxZoom: 24,
             zoomControl: true,
             zoomSnap: 0,
-            wheelPxPerZoomLevel: 60
+            wheelPxPerZoomLevel: 120,
+            wheelDebounceTime: 40,
+            doubleClickZoom: false
         }).setView([33.4565, -84.4251], 16);
 
         // Inject smooth fractional zoom slider
@@ -627,6 +758,9 @@
 
             L.DomEvent.disableClickPropagation(toggleBtn);
             L.DomEvent.disableClickPropagation(sliderWrapper);
+            L.DomEvent.disableScrollPropagation(toggleBtn);
+            L.DomEvent.disableScrollPropagation(sliderWrapper);
+            L.DomEvent.disableScrollPropagation(slider);
 
             toggleBtn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -672,6 +806,13 @@
                     
                     // Leaflet automatically clears transform when setZoom is called
                     map.setZoom(targetZoom, { animate: false });
+                }
+            });
+
+            window.addEventListener('blur', function() {
+                if (isDragging) {
+                    isDragging = false;
+                    map._animatingZoom = false;
                 }
             });
 
@@ -1348,12 +1489,6 @@
 
             layerControl.addBaseLayer(newLayer, layerName);
             newLayer.addTo(map);
-            if (finalWmtsBbox && !silent) {
-                const lBounds = L.latLngBounds(finalWmtsBbox);
-                if (!map.getBounds().intersects(lBounds)) {
-                    map.fitBounds(lBounds);
-                }
-            }
             
             const id = 'custom_layer_' + Date.now();
             customBasemaps.push({ 
@@ -2529,14 +2664,6 @@
                     const shapeCenter = tempLayer.getBounds().getCenter();
                     const mapCenter = map.getCenter();
                     translateGeoJSON(geojsonData, shapeCenter, mapCenter);
-                } else {
-                    try {
-                        const tempLayer = L.geoJSON(geojsonData);
-                        const bounds = tempLayer.getBounds();
-                        if (bounds.isValid()) {
-                            map.fitBounds(bounds, { padding: [50, 50] });
-                        }
-                    } catch (e) {}
                 }
 
                 let shapeName = document.querySelector(`option[value="${filename}"]`).text;
@@ -2915,15 +3042,6 @@
 
                 let finalShapeName = shapeName;
                 let finalShapeColor = '#ff2a00';
-                if (!shouldTeleport) {
-                    try {
-                        const tempLayer = L.geoJSON(geojsonData);
-                        const bounds = tempLayer.getBounds();
-                        if (bounds.isValid()) {
-                            map.fitBounds(bounds, { padding: [50, 50] });
-                        }
-                    } catch (e) {}
-                }
                 if (geojsonData && geojsonData.properties) {
                     if (geojsonData.properties.name) finalShapeName = geojsonData.properties.name;
                     if (geojsonData.properties.color) finalShapeColor = geojsonData.properties.color;
