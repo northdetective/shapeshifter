@@ -2361,6 +2361,33 @@
             return map.unproject(L.point(c.x + newDx, c.y + newDy));
         }
 
+        function normalizeGeoJSON(geojsonData) {
+            if (!geojsonData) return geojsonData;
+            if (geojsonData.type === 'FeatureCollection' && Array.isArray(geojsonData.features)) {
+                const newFeatures = [];
+                geojsonData.features.forEach(f => {
+                    if (f && f.geometry && (f.geometry.type === 'GeometryCollection' || Array.isArray(f.geometry.geometries))) {
+                        const geoms = f.geometry.geometries || [];
+                        geoms.forEach((g, idx) => {
+                            const subProps = Object.assign({}, f.properties || {});
+                            if (!subProps.name || subProps.name.toLowerCase().includes('collection') || subProps.name === 'Lightning Racer') {
+                                subProps.name = idx === 0 ? 'Line 1' : `Line ${idx + 1}`;
+                            }
+                            newFeatures.push({
+                                type: 'Feature',
+                                properties: subProps,
+                                geometry: g
+                            });
+                        });
+                    } else {
+                        newFeatures.push(f);
+                    }
+                });
+                return Object.assign({}, geojsonData, { features: newFeatures });
+            }
+            return geojsonData;
+        }
+
         function getAllLeafLayers(group) {
             let layers = [];
             if (group.eachLayer) {
@@ -2656,7 +2683,8 @@
             try {
                 const response = await fetch(filename);
                 if (!response.ok) throw new Error("Could not load " + filename);
-                const geojsonData = await response.json();
+                const rawJson = await response.json();
+                const geojsonData = normalizeGeoJSON(rawJson);
 
                 const shouldTeleport = document.getElementById('teleport-shape-checkbox').checked;
                 if (shouldTeleport) {
@@ -3020,6 +3048,8 @@
                         ]);
                     }
                 }
+
+                if (geojsonData) geojsonData = normalizeGeoJSON(geojsonData);
 
                 // Protect against empty geojson when there's only an overlay
                 const hasFeatures = geojsonData && geojsonData.features && geojsonData.features.length > 0;
@@ -3461,11 +3491,27 @@
                 serializedBasemaps.push(serialized);
             }
 
-            const latestGeoJson = shape.layerGroup.toGeoJSON();
-            latestGeoJson.properties = {
-                name: shape.name,
-                color: shape.color,
-                basemaps: serializedBasemaps
+            const leafLayers = getAllLeafLayers(shape.layerGroup);
+            const features = leafLayers.map(layer => {
+                const f = layer.toGeoJSON();
+                if (!f.properties) f.properties = {};
+                if (layer.feature && layer.feature.properties) {
+                    Object.assign(f.properties, layer.feature.properties);
+                }
+                const color = (layer.options && layer.options.color) || f.properties.stroke || shape.color;
+                f.properties.stroke = color;
+                f.properties.fill = color;
+                return f;
+            });
+
+            const latestGeoJson = {
+                type: "FeatureCollection",
+                features: features,
+                properties: {
+                    name: shape.name,
+                    color: shape.color,
+                    basemaps: serializedBasemaps
+                }
             };
             
             let fileContent = '';
