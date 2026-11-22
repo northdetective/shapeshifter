@@ -1333,11 +1333,11 @@
     }
   ],
   "properties": {
-    "name": "Lightning Racer",
+    "name": "Lightning Racer (Hersheypark)",
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1795227449672",
+        "id": "custom_layer_1795324873711",
         "url": "https://imagery.pasda.psu.edu/arcgis/rest/services/PEMAImagery2021_2023cache/MapServer",
         "wmsLayer": "",
         "layerName": "PEMAImagery2021 2023cache",
