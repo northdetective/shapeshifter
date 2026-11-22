@@ -282,6 +282,7 @@
                     <option value="Thunderhead.geojson">Thunderhead (Dollywood)</option>
 					<option value="Wildcat_(Hersheypark).geojson">Wildcat (Hersheypark, 1996)</option>
                     <option value="White_Lightning.geojson">White Lightning (Fun Spot Orlando)</option>
+					<option value="Wodan.geojson">Wodan (Europa Park)</option>
                     <option value="Zambezi_Zinger.geojson">Zambezi Zinger (Worlds of Fun)</option>
                 </optgroup>
 				
@@ -808,15 +809,17 @@
             let finalWmtsFormat = null;
             let finalWmtsStyle = null;
             let finalWmtsTileMatrixSet = null;
+            let finalWmtsTileMatrixPrefix = (wmtsOpts && wmtsOpts.tileMatrixPrefix) ? wmtsOpts.tileMatrixPrefix : null;
             let finalWmtsTemplate = null;
             let finalWmtsMaxZoom = null;
             let finalWmtsBbox = (wmtsOpts && wmtsOpts.bbox) ? wmtsOpts.bbox : null;
 
             if (isWMTS || isWMS) {
                 let finalWmsLayer = null;
-                let wmtsFormat = (wmtsOpts && wmtsOpts.format) ? wmtsOpts.format : 'image/png';
+                let wmtsFormat = (wmtsOpts && wmtsOpts.format && wmtsOpts.format.startsWith('image/')) ? wmtsOpts.format : 'image/png';
                 let wmtsStyle = (wmtsOpts && wmtsOpts.style) ? wmtsOpts.style : 'default';
                 let wmtsTileMatrixSet = (wmtsOpts && wmtsOpts.tileMatrixSet) ? wmtsOpts.tileMatrixSet : 'default028mm';
+                let wmtsTileMatrixPrefix = (wmtsOpts && wmtsOpts.tileMatrixPrefix) ? wmtsOpts.tileMatrixPrefix : '';
                 let wmtsTemplate = (wmtsOpts && wmtsOpts.template) ? wmtsOpts.template : null;
                 let wmtsMaxZoom = (wmtsOpts && wmtsOpts.maxNativeZoom) ? wmtsOpts.maxNativeZoom : 21;
 
@@ -902,7 +905,10 @@
                                     titleNode = node;
                                 }
                             } else if (localName === 'format' && !format) {
-                                format = node.textContent.trim();
+                                const fmtText = node.textContent.trim().toLowerCase();
+                                if (fmtText.startsWith('image/')) {
+                                    format = fmtText;
+                                }
                             } else if (localName === 'style' && !style) {
                                 const idChild = Array.from(node.children).find(n => (n.localName || n.nodeName.split(':').pop()).toLowerCase() === 'identifier');
                                 if (idChild) style = idChild.textContent.trim();
@@ -917,7 +923,7 @@
                                         const fmt = (node.getAttribute('format') || '').toLowerCase();
                                         if (!resourceUrlTemplate || fmt.includes('png') || fmt.includes('jpeg') || fmt.includes('jpg')) {
                                             resourceUrlTemplate = tmpl;
-                                            if (fmt) format = fmt;
+                                            if (fmt && fmt.startsWith('image/')) format = fmt;
                                         }
                                     }
                                 }
@@ -976,7 +982,7 @@
                             availableLayers.push({
                                 name: nameNode.textContent.trim(),
                                 title: (titleNode && titleNode.textContent) ? titleNode.textContent.trim() : nameNode.textContent.trim(),
-                                format: format || (isWMTS ? 'image/png' : 'image/png'),
+                                format: (format && format.startsWith('image/')) ? format : 'image/png',
                                 style: style || 'default',
                                 tileMatrixSet: chosenTileMatrixSet,
                                 resourceUrlTemplate: resourceUrlTemplate,
@@ -993,9 +999,11 @@
                                 el.parentNode && (el.parentNode.localName || el.parentNode.nodeName.split(':').pop()).toLowerCase() !== 'tilematrixsetlink'
                             );
                             const tmsMaxZoomMap = {};
+                            const tmsPrefixMap = {};
                             tmsNodes.forEach(tNode => {
                                 let tmsId = null;
                                 let highestZoom = 0;
+                                let prefix = '';
                                 Array.from(tNode.children).forEach(c => {
                                     const cName = (c.localName || c.nodeName.split(':').pop()).toLowerCase();
                                     if (cName === 'identifier' && !tmsId) {
@@ -1003,18 +1011,27 @@
                                     } else if (cName === 'tilematrix') {
                                         const matrixIdNode = Array.from(c.children).find(m => (m.localName || m.nodeName.split(':').pop()).toLowerCase() === 'identifier');
                                         if (matrixIdNode) {
-                                            const zVal = parseInt(matrixIdNode.textContent.trim(), 10);
+                                            const rawId = matrixIdNode.textContent.trim();
+                                            if (rawId.includes(':') && !prefix) {
+                                                prefix = rawId.substring(0, rawId.lastIndexOf(':') + 1);
+                                            }
+                                            const numStr = rawId.split(':').pop();
+                                            const zVal = parseInt(numStr, 10);
                                             if (!isNaN(zVal) && zVal > highestZoom) highestZoom = zVal;
                                         }
                                     }
                                 });
-                                if (tmsId && highestZoom > 0) {
-                                    tmsMaxZoomMap[tmsId] = highestZoom;
+                                if (tmsId) {
+                                    if (highestZoom > 0) tmsMaxZoomMap[tmsId] = highestZoom;
+                                    if (prefix) tmsPrefixMap[tmsId] = prefix;
                                 }
                             });
                             availableLayers.forEach(l => {
                                 if (tmsMaxZoomMap[l.tileMatrixSet]) {
                                     l.maxNativeZoom = tmsMaxZoomMap[l.tileMatrixSet];
+                                }
+                                if (tmsPrefixMap[l.tileMatrixSet]) {
+                                    l.tileMatrixPrefix = tmsPrefixMap[l.tileMatrixSet];
                                 }
                             });
                         } catch (e) {}
@@ -1045,6 +1062,7 @@
                         wmtsFormat = matchedLayer.format;
                         wmtsStyle = matchedLayer.style;
                         wmtsTileMatrixSet = matchedLayer.tileMatrixSet;
+                        if (matchedLayer.tileMatrixPrefix) wmtsTileMatrixPrefix = matchedLayer.tileMatrixPrefix;
                         if (matchedLayer.resourceUrlTemplate) wmtsTemplate = matchedLayer.resourceUrlTemplate;
                         if (matchedLayer.maxNativeZoom) wmtsMaxZoom = matchedLayer.maxNativeZoom;
                         if (matchedLayer.bbox) finalWmtsBbox = matchedLayer.bbox;
@@ -1058,6 +1076,7 @@
                                 wmtsFormat = selectedLayerObj.format;
                                 wmtsStyle = selectedLayerObj.style;
                                 wmtsTileMatrixSet = selectedLayerObj.tileMatrixSet;
+                                if (selectedLayerObj.tileMatrixPrefix) wmtsTileMatrixPrefix = selectedLayerObj.tileMatrixPrefix;
                                 if (selectedLayerObj.resourceUrlTemplate) wmtsTemplate = selectedLayerObj.resourceUrlTemplate;
                                 if (selectedLayerObj.maxNativeZoom) wmtsMaxZoom = selectedLayerObj.maxNativeZoom;
                                 if (selectedLayerObj.bbox) finalWmtsBbox = selectedLayerObj.bbox;
@@ -1084,6 +1103,7 @@
                         wmtsFormat = preferredLayer.format;
                         wmtsStyle = preferredLayer.style;
                         wmtsTileMatrixSet = preferredLayer.tileMatrixSet;
+                        if (preferredLayer.tileMatrixPrefix) wmtsTileMatrixPrefix = preferredLayer.tileMatrixPrefix;
                         if (preferredLayer.resourceUrlTemplate) wmtsTemplate = preferredLayer.resourceUrlTemplate;
                         if (preferredLayer.maxNativeZoom) wmtsMaxZoom = preferredLayer.maxNativeZoom;
                         if (preferredLayer.bbox) finalWmtsBbox = preferredLayer.bbox;
@@ -1153,7 +1173,7 @@
                         }
 
                         const separator = baseUrl.includes('?') ? '&' : '?';
-                        wmtsUrl = `${baseUrl}${separator}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${finalWmsLayer}&STYLE=${wmtsStyle}&FORMAT=${wmtsFormat}&TILEMATRIXSET=${wmtsTileMatrixSet}&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}`;
+                        wmtsUrl = `${baseUrl}${separator}SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${finalWmsLayer}&STYLE=${wmtsStyle}&FORMAT=${wmtsFormat}&TILEMATRIXSET=${wmtsTileMatrixSet}&TILEMATRIX=${wmtsTileMatrixPrefix || ''}{z}&TILEROW={y}&TILECOL={x}`;
                     }
 
                     const wmtsTileOpts = {
@@ -1168,7 +1188,7 @@
                 } else {
                     newLayer = L.tileLayer.wms(cleanUrl, {
                         layers: finalWmsLayer, 
-                        format: wmtsFormat || 'image/png',
+                        format: (wmtsFormat && wmtsFormat.startsWith('image/')) ? wmtsFormat : 'image/png',
                         transparent: true,
                         attribution: 'Custom WMS',
                         maxZoom: 24
@@ -1180,6 +1200,7 @@
                     finalWmtsFormat = wmtsFormat;
                     finalWmtsStyle = wmtsStyle;
                     finalWmtsTileMatrixSet = wmtsTileMatrixSet;
+                    finalWmtsTileMatrixPrefix = wmtsTileMatrixPrefix;
                     finalWmtsTemplate = wmtsTemplate;
                     finalWmtsMaxZoom = wmtsMaxZoom;
                 }
@@ -1320,7 +1341,8 @@
 
             if (newLayer && typeof newLayer.on === 'function') {
                 newLayer.on('tileerror', function(error) {
-                    console.warn(`Tile failed to load for layer ${layerName}:`, error);
+                    const tileUrl = (error && error.tile) ? error.tile.src : '';
+                    console.warn(`Tile failed to load for layer ${layerName}:`, error, tileUrl);
                 });
             }
 
@@ -1344,6 +1366,7 @@
                     format: finalWmtsFormat, 
                     style: finalWmtsStyle, 
                     tileMatrixSet: finalWmtsTileMatrixSet,
+                    tileMatrixPrefix: finalWmtsTileMatrixPrefix,
                     template: finalWmtsTemplate,
                     maxNativeZoom: finalWmtsMaxZoom,
                     bbox: finalWmtsBbox
@@ -2506,6 +2529,14 @@
                     const shapeCenter = tempLayer.getBounds().getCenter();
                     const mapCenter = map.getCenter();
                     translateGeoJSON(geojsonData, shapeCenter, mapCenter);
+                } else {
+                    try {
+                        const tempLayer = L.geoJSON(geojsonData);
+                        const bounds = tempLayer.getBounds();
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds, { padding: [50, 50] });
+                        }
+                    } catch (e) {}
                 }
 
                 let shapeName = document.querySelector(`option[value="${filename}"]`).text;
@@ -2884,6 +2915,15 @@
 
                 let finalShapeName = shapeName;
                 let finalShapeColor = '#ff2a00';
+                if (!shouldTeleport) {
+                    try {
+                        const tempLayer = L.geoJSON(geojsonData);
+                        const bounds = tempLayer.getBounds();
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds, { padding: [50, 50] });
+                        }
+                    } catch (e) {}
+                }
                 if (geojsonData && geojsonData.properties) {
                     if (geojsonData.properties.name) finalShapeName = geojsonData.properties.name;
                     if (geojsonData.properties.color) finalShapeColor = geojsonData.properties.color;
