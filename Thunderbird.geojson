@@ -531,17 +531,8 @@
     }
   ],
   "properties": {
-    "name": "Thunderbird",
+    "name": "Thunderbird (PowerPark)",
     "color": "#ff2a00",
-    "basemaps": [
-      {
-        "id": "custom_layer_1795371770423",
-        "url": "https://imagery.msdis.missouri.edu/arcgis/rest/services/StatewideServices/Missouri_2024_South_6inch/ImageServer",
-        "wmsLayer": "",
-        "layerName": "Missouri 2024 South 6inch",
-        "wmtsOpts": null,
-        "opacity": 1
-      }
-    ]
+    "basemaps": []
   }
 }
