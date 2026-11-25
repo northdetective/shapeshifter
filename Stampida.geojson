@@ -545,16 +545,16 @@
             41.090501
           ],
           [
-            1.155325,
-            41.090472
+            1.155327,
+            41.090471
           ],
           [
-            1.155337,
-            41.090442
+            1.15534,
+            41.090443
           ],
           [
-            1.15536,
-            41.090417
+            1.155361,
+            41.090415
           ],
           [
             1.155391,
@@ -900,11 +900,11 @@
     }
   ],
   "properties": {
-    "name": "Stampida",
+    "name": "Stampida (PortAventura)",
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1795476738981",
+        "id": "custom_layer_1795570435965",
         "url": "https://www.ign.es/wmts/pnoa-ma",
         "wmsLayer": "OI.OrthoimageCoverage",
         "layerName": "Imágenes de satélite Sentinel y ortofotos PNOA",
