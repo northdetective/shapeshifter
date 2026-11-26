@@ -52,7 +52,11 @@
             40.789421
           ],
           [
-            -86.770429,
+            -86.77041,
+            40.789407
+          ],
+          [
+            -86.770433,
             40.789396
           ],
           [
@@ -279,11 +283,11 @@
     }
   ],
   "properties": {
-    "name": "Hoosier Hurricane",
+    "name": "Hoosier Hurricane (Indiana Beach)",
     "color": "#ff2a00",
     "basemaps": [
       {
-        "id": "custom_layer_1795630280186",
+        "id": "custom_layer_1795663138964",
         "url": "https://di-ingov.img.arcgis.com/arcgis/rest/services/DynamicWebMercator/Indiana_2023_Imagery/ImageServer",
         "wmsLayer": "",
         "layerName": "Indiana 2023 Imagery",

@@ -160,6 +160,10 @@
             40.789396
           ],
           [
+            -86.77041,
+            40.789407
+          ],
+          [
             -86.770397,
             40.789421
           ],
@@ -427,19 +431,11 @@
     }
   ],
   "properties": {
-    "name": "Cornball Express",
+    "name": "Cornball Express (Indiana Beach)",
     "color": "#000000",
     "basemaps": [
       {
-        "id": "custom_layer_1795661057743",
-        "url": "https://di-ingov.img.arcgis.com/arcgis/rest/services/DynamicWebMercator/Indiana_2023_Imagery/ImageServer",
-        "wmsLayer": "",
-        "layerName": "Indiana 2023 Imagery",
-        "wmtsOpts": null,
-        "opacity": 1
-      },
-      {
-        "id": "custom_layer_1795661607846",
+        "id": "custom_layer_1795663138964",
         "url": "https://di-ingov.img.arcgis.com/arcgis/rest/services/DynamicWebMercator/Indiana_2023_Imagery/ImageServer",
         "wmsLayer": "",
         "layerName": "Indiana 2023 Imagery",
