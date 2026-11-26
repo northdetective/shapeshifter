@@ -294,6 +294,25 @@
 					<option value="Wodan.geojson">Wodan (Europa Park)</option>
                     <option value="Zambezi_Zinger.geojson">Zambezi Zinger (Worlds of Fun)</option>
                 </optgroup>
+
+                <optgroup label="Custom Coasters International">
+                    <option value="Boss.geojson">Boss (Six Flags St. Louis)</option>
+                    <option value="Boulder_Dash.geojson">Boulder Dash (Lake Compounce)</option>
+                    <option value="Cannonball_Run.geojson">Cannonball Run (Waterville USA)</option>
+                    <option value="Cheetah.geojson">Cheetah (Wild Adventures)</option>
+                    <option value="Cornball_Express.geojson">Cornball Express (Indiana Beach)</option>
+                    <option value="Cyclops.geojson">Cyclops (Mount Olympus)</option>
+                    <option value="Excalibur.geojson">Excalibur (Funtown Splashtown USA)</option>
+                    <option value="Hoosier_Hurricane.geojson">Hoosier Hurricane (Indiana Beach)</option>
+                    <option value="Hurricane.geojson">Hurricane (Myrtle Beach Pavilion)</option>
+                    <option value="Legend.geojson">Legend (Holiday World)</option>
+                    <option value="Pegasus.geojson">Pegasus (Mount Olympus)</option>
+                    <option value="Rampage.geojson">Rampage (Alabama Adventure)</option>
+                    <option value="Raven.geojson">Raven (Holiday World)</option>
+                    <option value="Stampida.geojson">Stampida (PortAventura)</option>
+                    <option value="Tomahawk.geojson">Tomahawk (PortAventura)</option>
+                    <option value="Zeus.geojson">Zeus (Mount Olympus)</option>
+                </optgroup>
 				
                 <optgroup label="Other - Steel">
                     <option value="arieforce.geojson">ArieForce One (Fun Spot Atlanta)</option>
@@ -305,10 +324,7 @@
 
                 <optgroup label="Other - Wood">
 					<option value="Bobs.geojson">Bobs (Riverview Park)</option>
-					<option value="Hurricane.geojson">Hurricane (Myrtle Beach Pavilion)</option>
 					<option value="Rolling_Thunder.geojson">Rolling Thunder (Six Flags Great Adventure)</option>
-					<option value="Stampida.geojson">Stampida (PortAventura)</option>
-					<option value="Tomahawk.geojson">Tomahawk (PortAventura)</option>
                     <option value="Wildcat.geojson">Wildcat (Bertrand Island)</option>
 					<option value="Wild_Cat.geojson">Wildcat (Hersheypark, 1923)</option>
                 </optgroup>
@@ -951,6 +967,26 @@
             const isWMTS = lowerUrl.includes('wmts') && !url.includes('{z}');
             const isWMS = (isArcGISWMS || lowerUrl.includes('wms') || (!isMapServer && !isImageServer && !url.includes('{z}') && wmsLayer)) && !url.includes('{z}');
 
+            let mapServerBaseUrl = cleanUrl;
+            let detectedMapServerSublayer = null;
+            if (isMapServer) {
+                const subMatch = cleanUrl.match(/^(.+?\/MapServer)(?:\/(\d+))(?:\/export|\/|\?.*)?$/i);
+                if (subMatch) {
+                    mapServerBaseUrl = subMatch[1];
+                    detectedMapServerSublayer = subMatch[2];
+                    if (!wmsLayer || wmsLayer.trim() === '') {
+                        wmsLayer = detectedMapServerSublayer;
+                    }
+                } else {
+                    const baseMatch = cleanUrl.match(/^(.+?\/MapServer)(?:\/export|\/|\?.*)?$/i);
+                    if (baseMatch) {
+                        mapServerBaseUrl = baseMatch[1];
+                    }
+                }
+                cleanUrl = mapServerBaseUrl;
+                url = mapServerBaseUrl;
+            }
+
             let finalWmtsFormat = null;
             let finalWmtsStyle = null;
             let finalWmtsTileMatrixSet = null;
@@ -1364,8 +1400,37 @@
             } else if (isMapServer) {
                 let isCached = false;
                 let mapServerData = null;
+
+                const targetSubId = detectedMapServerSublayer || (wmsLayer && !isNaN(parseInt(wmsLayer.trim())) ? wmsLayer.trim() : null);
+                if (!explicitLayerName && !layerName && targetSubId) {
+                    try {
+                        const subJsonUrl = `${mapServerBaseUrl}/${targetSubId}?f=json`;
+                        const subRes = await fetch(subJsonUrl);
+                        if (subRes.ok) {
+                            const subData = await subRes.json();
+                            if (subData && subData.name) {
+                                layerName = subData.name;
+                            }
+                        }
+                    } catch (e) {
+                        if (window.L && L.esri && L.esri.request) {
+                            try {
+                                const subData = await new Promise((res, rej) => {
+                                    L.esri.request(`${mapServerBaseUrl}/${targetSubId}`, {}, (err, data) => {
+                                        if (err) rej(err);
+                                        else res(data);
+                                    });
+                                });
+                                if (subData && subData.name) {
+                                    layerName = subData.name;
+                                }
+                            } catch (err2) {}
+                        }
+                    }
+                }
+
                 try {
-                    const jsonUrl = new URL(url);
+                    const jsonUrl = new URL(mapServerBaseUrl);
                     jsonUrl.searchParams.set('f', 'json');
                     const response = await fetch(jsonUrl.toString());
                     mapServerData = await response.json();
@@ -1373,7 +1438,7 @@
                     if (window.L && L.esri && L.esri.request) {
                         try {
                             mapServerData = await new Promise((res, rej) => {
-                                L.esri.request(url, {}, (err, data) => {
+                                L.esri.request(mapServerBaseUrl, {}, (err, data) => {
                                     if (err) rej(err);
                                     else res(data);
                                 });
@@ -1386,7 +1451,7 @@
                     }
                 }
 
-                if (mapServerData && mapServerData.singleFusedMapCache) {
+                if (!wmsLayer && !detectedMapServerSublayer && mapServerData && mapServerData.singleFusedMapCache) {
                     const tileInfo = mapServerData.tileInfo;
                     const isStandardTileSize = tileInfo && tileInfo.rows === 256 && tileInfo.cols === 256;
                     const maxLOD = (tileInfo && tileInfo.lods && tileInfo.lods.length > 0) ? tileInfo.lods[tileInfo.lods.length - 1].level : 0;
@@ -1400,11 +1465,11 @@
                 
                 if (isCached) {
                     if (!layerName) {
-                        const urlParts = url.replace(/\/$/, '').split('/');
+                        const urlParts = mapServerBaseUrl.replace(/\/$/, '').split('/');
                         layerName = (urlParts.length > 1) ? urlParts[urlParts.length - 2].replace(/_/g, ' ') : `Custom Layer ${customLayerCount++}`;
                     }
                     newLayer = L.esri.tiledMapLayer({
-                        url: url,
+                        url: mapServerBaseUrl,
                         opacity: 1,
                         maxZoom: 24,
                         useCors: false
@@ -1420,13 +1485,19 @@
                         let matchedObj = null;
                         if (wmsLayer) {
                             const target = wmsLayer.trim().toLowerCase();
-                            matchedObj = availableLayers.find(l => l.name === target || l.title.toLowerCase() === target || l.title.toLowerCase().includes(target));
+                            matchedObj = availableLayers.find(l => l.name === target);
+                            if (!matchedObj) {
+                                matchedObj = availableLayers.find(l => l.title.toLowerCase() === target);
+                            }
+                            if (!matchedObj) {
+                                matchedObj = availableLayers.find(l => l.title.toLowerCase().includes(target));
+                            }
                         }
 
                         if (matchedObj) {
                             finalLayerIds = [parseInt(matchedObj.name)];
                             wmsLayer = matchedObj.name;
-                            if (!explicitLayerName) layerName = matchedObj.title;
+                            if (!explicitLayerName && !layerName) layerName = matchedObj.title;
                         } else if (availableLayers.length > 1 && !silent) {
                             // Reuse the WMS modal logic for consistency
                             const userChoice = await promptWMSLayerSelection(availableLayers);
@@ -1443,22 +1514,28 @@
                         } else if (availableLayers.length === 1) {
                             finalLayerIds = [mapServerData.layers[0].id];
                             wmsLayer = finalLayerIds[0].toString();
-                            if (!explicitLayerName) layerName = mapServerData.layers[0].name;
+                            if (!explicitLayerName && !layerName) layerName = mapServerData.layers[0].name;
                         }
                     }
 
-                    if (!layerName) {
-                        const urlParts = url.replace(/\/$/, '').split('/');
-                        layerName = (urlParts.length > 1) ? urlParts[urlParts.length - 2].replace(/_/g, ' ') : `Custom Layer ${customLayerCount++}`;
+                    if (!finalLayerIds && wmsLayer && wmsLayer.trim() !== '') {
+                        const parsedIds = wmsLayer.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                        if (parsedIds.length > 0) finalLayerIds = parsedIds;
                     }
 
-                    if (customBasemaps.some(b => b.url === url && b.wmsLayer === wmsLayer)) {
+                    if (!layerName) {
+                        const urlParts = mapServerBaseUrl.replace(/\/$/, '').split('/');
+                        layerName = (urlParts.length > 1) ? urlParts[urlParts.length - 2].replace(/_/g, ' ') : `Custom Layer ${customLayerCount++}`;
+                        if (wmsLayer) layerName += ` (${wmsLayer})`;
+                    }
+
+                    if (customBasemaps.some(b => b.url === mapServerBaseUrl && b.wmsLayer === wmsLayer)) {
                         if (!silent) alert(`Layer "${layerName}" is already added.`);
                         return;
                     }
 
                     const dynamicOpts = {
-                        url: url,
+                        url: mapServerBaseUrl,
                         opacity: 1,
                         maxZoom: 24,
                         f: 'image',
@@ -1466,9 +1543,6 @@
                     };
                     if (finalLayerIds) {
                         dynamicOpts.layers = finalLayerIds;
-                    } else if (wmsLayer && wmsLayer.trim() !== '') {
-                        const parsedIds = wmsLayer.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
-                        if (parsedIds.length > 0) dynamicOpts.layers = parsedIds;
                     }
                     
                     newLayer = L.esri.dynamicMapLayer(dynamicOpts);
