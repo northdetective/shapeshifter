@@ -35,10 +35,6 @@
             48.261511
           ],
           [
-            7.718601,
-            48.261521
-          ],
-          [
             7.718453,
             48.261581
           ],
@@ -813,11 +809,10 @@
     }
   ],
   "properties": {
-    "name": "Wodan",
-    "color": "#804000",
+    "name": "Wodan (Europa Park)",
     "basemaps": [
       {
-        "id": "custom_layer_1795366208512",
+        "id": "custom_layer_1795845565986",
         "url": "https://owsproxy.lgl-bw.de/owsproxy/ows/WMS_LGL-BW_ATKIS_DOP_20_C",
         "wmsLayer": "IMAGES_DOP_20_RGB",
         "layerName": "Digitale Orthophotos 20 cm Farbe grenzscharf - Landesgrenze",
