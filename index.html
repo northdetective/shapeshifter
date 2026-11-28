@@ -119,14 +119,6 @@
             font-size: 17px;
             margin-bottom: 10px;
         }
-        .color-picker {
-            cursor: pointer;
-            border: none;
-            width: 30px;
-            height: 30px;
-            padding: 0;
-            background: none;
-        }
         
         /* Individual Shape Controls */
         .shape-controls {
@@ -204,7 +196,7 @@
 					<option value="Roar.geojson">Roar (Six Flags America)</option>
                     <option value="Silver_Comet.geojson">Silver Comet (Niagara)</option>
 					<option value="Superman.geojson">Superman: Ride of Steel (Six Flags America)</option>
-					<option value="Switchback.geojson">Switchback (ZDT)</option>
+					<option value="switchback.geojson">Switchback (ZDT)</option>
                     <option value="WildOne.geojson">Wild One (Six Flags America)</option>
 					<option value="X2.geojson">X2 (Six Flags Magic Mountain)</option>
                 </optgroup>
@@ -245,6 +237,39 @@
                     <option value="Zamperla_Family_Coaster_(92m).geojson">Zamperla Family Coaster (92m)</option>
                     <option value="Zamperla_Family_Coaster_(Gravity_80STD).geojson">Zamperla Family Coaster (Gravity 80STD)</option>
 					<option value="Galaxy_Spin.geojson">Zamperla Twister Coaster (420m)</option>
+                </optgroup>
+
+<optgroup label="Custom Coasters International">
+                    <option value="Boss.geojson">Boss (Mid-America Adventure)</option>
+                    <option value="Boulder_Dash.geojson">Boulder Dash (Lake Compounce)</option>
+                    <option value="Cannonball_Run.geojson">Cannonball Run (Waterville USA)</option>
+                    <option value="Cheetah.geojson">Cheetah (Wild Adventures)</option>
+                    <option value="Cornball_Express.geojson">Cornball Express (Indiana Beach)</option>
+                    <option value="Cyclops.geojson">Cyclops (Mount Olympus)</option>
+                    <option value="Excalibur.geojson">Excalibur (Funtown Splashtown USA)</option>
+                    <option value="GhostRider.geojson">GhostRider (Knott's Berry Farm)</option>
+                    <option value="Great_White.geojson">Great White (Morey's Piers)</option>
+                    <option value="Hoosier_Hurricane.geojson">Hoosier Hurricane (Indiana Beach)</option>
+                    <option value="Hurricane.geojson">Hurricane (Myrtle Beach Pavilion)</option>
+                    <option value="Kingdom_Coaster.geojson">Kingdom Coaster (Dutch Wonderland)</option>
+                    <option value="Legend.geojson">Legend (Holiday World)</option>
+                    <option value="Medusa.geojson">Medusa (Six Flags Mexico)</option>
+                    <option value="Mega_Zeph.geojson">Mega Zeph (Six Flags New Orleans)</option>
+                    <option value="New_Mexico_Rattler.geojson">New Mexico Rattler (Cliff's)</option>
+                    <option value="Outlaw.geojson">Outlaw (Adventureland)</option>
+                    <option value="Pegasus.geojson">Pegasus (Mount Olympus)</option>
+                    <option value="Rampage.geojson">Rampage (Alabama Adventure)</option>
+                    <option value="Raven.geojson">Raven (Holiday World)</option>
+                    <option value="Shivering_Timbers.geojson">Shivering Timbers (Michigan's Adventure)</option>
+                    <option value="Stampida.geojson">Stampida (PortAventura)</option>
+                    <option value="Timber_Terror.geojson">Timber Terror (Silverwood)</option>
+                    <option value="Tomahawk.geojson">Tomahawk (PortAventura)</option>
+                    <option value="Tonnerre_2_Zeus.geojson">Tonnerre 2 Zeus (Parc Astérix)</option>
+                    <option value="Tremors.geojson">Tremors (Silverwood)</option>
+                    <option value="Twisted_Twins.geojson">Twisted Twins (Kentucky Kingdom)</option>
+                    <option value="Villain.geojson">Villain (Geauga Lake)</option>
+                    <option value="Zach's_Zoomer.geojson">Zach's Zoomer (Michigan's Adventure)</option>
+                    <option value="Zeus.geojson">Zeus (Mount Olympus)</option>
                 </optgroup>
 
 				<optgroup label="The Gravity Group">
@@ -293,25 +318,6 @@
                     <option value="White_Lightning.geojson">White Lightning (Fun Spot Orlando)</option>
 					<option value="Wodan.geojson">Wodan (Europa Park)</option>
                     <option value="Zambezi_Zinger.geojson">Zambezi Zinger (Worlds of Fun)</option>
-                </optgroup>
-
-                <optgroup label="Custom Coasters International">
-                    <option value="Boss.geojson">Boss (Mid-America Adventure)</option>
-                    <option value="Boulder_Dash.geojson">Boulder Dash (Lake Compounce)</option>
-                    <option value="Cannonball_Run.geojson">Cannonball Run (Waterville USA)</option>
-                    <option value="Cheetah.geojson">Cheetah (Wild Adventures)</option>
-                    <option value="Cornball_Express.geojson">Cornball Express (Indiana Beach)</option>
-                    <option value="Cyclops.geojson">Cyclops (Mount Olympus)</option>
-                    <option value="Excalibur.geojson">Excalibur (Funtown Splashtown USA)</option>
-                    <option value="Hoosier_Hurricane.geojson">Hoosier Hurricane (Indiana Beach)</option>
-                    <option value="Hurricane.geojson">Hurricane (Myrtle Beach Pavilion)</option>
-                    <option value="Legend.geojson">Legend (Holiday World)</option>
-                    <option value="Pegasus.geojson">Pegasus (Mount Olympus)</option>
-                    <option value="Rampage.geojson">Rampage (Alabama Adventure)</option>
-                    <option value="Raven.geojson">Raven (Holiday World)</option>
-                    <option value="Stampida.geojson">Stampida (PortAventura)</option>
-                    <option value="Tomahawk.geojson">Tomahawk (PortAventura)</option>
-                    <option value="Zeus.geojson">Zeus (Mount Olympus)</option>
                 </optgroup>
 				
                 <optgroup label="Other - Steel">
@@ -504,9 +510,57 @@
                     this.deselect();
                 }
             };
+
+            // Robust setOpacity that updates options, editing options, and element style
+            L.DistortableImageOverlay.prototype.setOpacity = function(val) {
+                const opacity = parseFloat(val);
+                this.options.opacity = isNaN(opacity) ? 1 : opacity;
+                if (this.editing && this.editing.options) {
+                    this.editing.options.opacity = this.options.opacity;
+                }
+                const el = this.getElement();
+                if (el) {
+                    el.style.opacity = this.options.opacity;
+                }
+                return this;
+            };
+
+            const origOnAdd = L.DistortableImageOverlay.prototype.onAdd;
+            L.DistortableImageOverlay.prototype.onAdd = function(map) {
+                origOnAdd.call(this, map);
+                const el = this.getElement();
+                if (el && this.options.opacity !== undefined) {
+                    el.style.opacity = this.options.opacity;
+                }
+            };
+
+            // Safe getAngle that never crashes _reset if matrix3d is absent or unparseable
+            L.DistortableImageOverlay.prototype.getAngle = function(unit = 'deg') {
+                try {
+                    const el = this.getElement();
+                    if (!el || !el.style || !el.style[L.DomUtil.TRANSFORM]) {
+                        return this.rotation ? (this.rotation[unit] || 0) : 0;
+                    }
+                    const transformStr = el.style[L.DomUtil.TRANSFORM];
+                    if (!transformStr || !transformStr.includes('matrix3d')) {
+                        return this.rotation ? (this.rotation[unit] || 0) : 0;
+                    }
+                    const matrix = transformStr.split('matrix3d')[1].slice(1, -1).split(',');
+                    const row0x = parseFloat(matrix[0]);
+                    const row0y = parseFloat(matrix[1]);
+                    const row1x = parseFloat(matrix[4]);
+                    const row1y = parseFloat(matrix[5]);
+                    const determinant = row0x * row1y - row0y * row1x;
+                    const angle = L.TrigUtil.calcAngle(row0x, row0y, unit);
+                    return determinant > 0 ? angle : -angle;
+                } catch (err) {
+                    return this.rotation ? (this.rotation[unit] || 0) : 0;
+                }
+            };
         }
 
-        // Prevent handle clicks and drags from leaking click events to the map
+        // Prevent handle clicks and drags from leaking click events to the map,
+        // and guarantee handles never detach from corners
         if (window.L && L.EditHandle) {
             const origBind = L.EditHandle.prototype._bindListeners;
             L.EditHandle.prototype._bindListeners = function() {
@@ -516,6 +570,128 @@
                         L.DomEvent.stopPropagation(e);
                     }
                 });
+            };
+
+            // Ensure handle marker always stays attached to its corner on drag end
+            L.EditHandle.prototype._onHandleDragEnd = function() {
+                this.updateHandle();
+                this._fireEdit();
+            };
+        }
+
+        // 1. Scale with opposite corner staying stationary (instead of scaling from center)
+        if (window.L && L.ScaleHandle) {
+            L.ScaleHandle.prototype._onHandleDrag = function() {
+                try {
+                    const overlay = this._handled;
+                    const map = overlay._map;
+                    if (!map) return;
+
+                    const dragCorner = this._corner;
+                    const oppCorner = 3 - dragCorner;
+
+                    const anchorLatLng = overlay.getCorner(oppCorner);
+                    const formerLatLng = overlay.getCorner(dragCorner);
+                    const newLatLng = this.getLatLng();
+
+                    const anchorPt = map.project(anchorLatLng);
+                    const formerPt = map.project(formerLatLng);
+                    const newPt = map.project(newLatLng);
+
+                    const vFormer = formerPt.subtract(anchorPt);
+                    const vNew = newPt.subtract(anchorPt);
+
+                    const denom = vFormer.x * vFormer.x + vFormer.y * vFormer.y;
+                    if (denom === 0) return;
+
+                    const dot = vNew.x * vFormer.x + vNew.y * vFormer.y;
+                    let scale = dot / denom;
+                    if (!isFinite(scale) || scale < 0.02) scale = 0.02;
+
+                    const edgeMinWidth = overlay.edgeMinWidth || 50;
+                    const c0Pt = map.project(overlay.getCorner(0));
+                    const c1Pt = map.project(overlay.getCorner(1));
+                    const topEdgeDist = c0Pt.distanceTo(c1Pt);
+                    if (scale < 1 && topEdgeDist > 0) {
+                        const minScale = Math.min(1, edgeMinWidth / topEdgeDist);
+                        if (scale < minScale) {
+                            scale = minScale;
+                        }
+                    }
+
+                    const scaledCorners = {};
+                    for (let i = 0; i < 4; i++) {
+                        if (i === oppCorner) {
+                            scaledCorners[i] = anchorLatLng;
+                        } else {
+                            const pt = map.project(overlay.getCorner(i));
+                            const scaledPt = anchorPt.add(pt.subtract(anchorPt).multiplyBy(scale));
+                            scaledCorners[i] = map.unproject(scaledPt);
+                        }
+                    }
+
+                    overlay.setCorners(scaledCorners);
+                } catch (e) {
+                    console.warn("Scale handle drag error:", e);
+                } finally {
+                    this.updateHandle();
+                }
+            };
+        }
+
+        // 2. Safe DistortHandle dragging that prevents handle detachment
+        if (window.L && L.DistortHandle) {
+            L.DistortHandle.prototype._onHandleDrag = function() {
+                try {
+                    const overlay = this._handled;
+                    overlay.setCorner(this._corner, this.getLatLng());
+                } catch (e) {
+                    console.warn("Distort handle drag error:", e);
+                } finally {
+                    this.updateHandle();
+                }
+            };
+        }
+
+        // 3. Safe RotateHandle dragging that prevents handle detachment
+        if (window.L && L.RotateHandle) {
+            L.RotateHandle.prototype._onHandleDrag = function() {
+                try {
+                    const overlay = this._handled;
+                    const formerLatLng = overlay.getCorner(this._corner);
+                    const newLatLng = this.getLatLng();
+                    const angle = this.calculateAngleDelta(formerLatLng, newLatLng);
+                    if (isFinite(angle)) {
+                        overlay.rotateBy(angle);
+                    }
+                } catch (e) {
+                    console.warn("Rotate handle drag error:", e);
+                } finally {
+                    this.updateHandle();
+                }
+            };
+        }
+
+        // 4. Safe FreeRotateHandle dragging that prevents handle detachment
+        if (window.L && L.FreeRotateHandle) {
+            L.FreeRotateHandle.prototype._onHandleDrag = function() {
+                try {
+                    const overlay = this._handled;
+                    const formerLatLng = overlay.getCorner(this._corner);
+                    const newLatLng = this.getLatLng();
+                    const angle = this.calculateAngleDelta(formerLatLng, newLatLng);
+                    const scale = this._calculateScalingFactor(formerLatLng, newLatLng);
+                    if (isFinite(angle) && angle !== 0) {
+                        overlay.rotateBy(angle);
+                    }
+                    if (isFinite(scale) && scale !== 1) {
+                        overlay.scaleBy(scale);
+                    }
+                } catch (e) {
+                    console.warn("FreeRotate handle drag error:", e);
+                } finally {
+                    this.updateHandle();
+                }
             };
         }
 
@@ -596,19 +772,24 @@
             return false;
         }
 
-        function loadFallbackTile(layer, coords, currentZoom, onDone) {
-            if (currentZoom <= 1) {
+        function loadFallbackTile(layer, coords, currentZoom, onDone, minZoom = Math.max(1, coords.z - 5)) {
+            if (currentZoom <= minZoom || currentZoom <= 1) {
                 onDone(new Error('Fallback limit reached'));
                 return;
             }
             const ancestorZoom = currentZoom - 1;
             const scaleDiff = Math.pow(2, coords.z - ancestorZoom);
-            const ancestorCoords = {
-                x: Math.floor(coords.x / scaleDiff),
-                y: Math.floor(coords.y / scaleDiff),
-                z: ancestorZoom
-            };
+            const ancestorCoords = L.point(
+                Math.floor(coords.x / scaleDiff),
+                Math.floor(coords.y / scaleDiff)
+            );
+            ancestorCoords.z = ancestorZoom;
+            const currentUrl = layer.getTileUrl(coords);
             const ancestorUrl = layer.getTileUrl(ancestorCoords);
+            if (!ancestorUrl || ancestorUrl === currentUrl) {
+                onDone(new Error('No distinct fallback tile URL'));
+                return;
+            }
             const parentImg = new Image();
             const isEsri = layer._url && layer._url.includes('arcgisonline.com');
             if (isEsri) parentImg.crossOrigin = 'anonymous';
@@ -616,7 +797,7 @@
             parentImg.onload = function() {
                 if (isEsri && ancestorZoom >= 18 && isEsriPlaceholder(parentImg)) {
                     // Ancestor is also placeholder, recurse up to find highest real resolution
-                    loadFallbackTile(layer, coords, ancestorZoom, onDone);
+                    loadFallbackTile(layer, coords, ancestorZoom, onDone, minZoom);
                     return;
                 }
                 try {
@@ -634,7 +815,7 @@
                 }
             };
             parentImg.onerror = function() {
-                loadFallbackTile(layer, coords, ancestorZoom, onDone);
+                loadFallbackTile(layer, coords, ancestorZoom, onDone, minZoom);
             };
             parentImg.src = ancestorUrl;
         }
@@ -949,13 +1130,36 @@
             });
         }
 
+        function normalizeBasemapUrl(rawUrl) {
+            if (!rawUrl) return '';
+            try {
+                const u = new URL(rawUrl.trim());
+                u.pathname = u.pathname.replace(/\/+$/, '');
+                return u.toString();
+            } catch (e) {
+                return rawUrl.trim().replace(/\/+$/, '');
+            }
+        }
+
+        function isDuplicateCustomBasemap(targetUrl, targetWmsLayer) {
+            const normUrl = normalizeBasemapUrl(targetUrl);
+            const normLayer = (targetWmsLayer || '').trim();
+            return customBasemaps.some(b =>
+                normalizeBasemapUrl(b.url) === normUrl &&
+                ((b.wmsLayer || '').trim() === normLayer)
+            );
+        }
+
         async function addCustomBasemap(url, wmsLayer, silent = false, explicitLayerName = null, wmtsOpts = null) {
             let layerName = explicitLayerName || '';
             let newLayer;
             
             let cleanUrl = url;
+            let requestedWmsVersion = (wmtsOpts && wmtsOpts.wmsVersion) ? wmtsOpts.wmsVersion : null;
             try {
                 const urlObj = new URL(url);
+                const explicitVer = urlObj.searchParams.get('version') || urlObj.searchParams.get('VERSION');
+                if (explicitVer && !requestedWmsVersion) requestedWmsVersion = explicitVer.trim();
                 ['request', 'REQUEST', 'service', 'SERVICE', 'version', 'VERSION'].forEach(p => urlObj.searchParams.delete(p));
                 cleanUrl = urlObj.toString();
             } catch (e) {}
@@ -987,6 +1191,11 @@
                 url = mapServerBaseUrl;
             }
 
+            if (isDuplicateCustomBasemap(url, wmsLayer)) {
+                if (!silent) alert(`Layer "${layerName || url}" is already added.`);
+                return;
+            }
+
             let finalWmtsFormat = null;
             let finalWmtsStyle = null;
             let finalWmtsTileMatrixSet = null;
@@ -995,8 +1204,55 @@
             let finalWmtsMaxZoom = null;
             let finalWmtsBbox = (wmtsOpts && wmtsOpts.bbox) ? wmtsOpts.bbox : null;
 
+            async function fetchArcGISJson(targetUrl) {
+                try {
+                    const res = await fetch(targetUrl);
+                    if (res.ok) {
+                        return { data: await res.json(), noReferrer: false };
+                    }
+                } catch (e) {}
+                try {
+                    const resNoRef = await fetch(targetUrl, { referrerPolicy: 'no-referrer' });
+                    if (resNoRef.ok) {
+                        return { data: await resNoRef.json(), noReferrer: true };
+                    }
+                } catch (e) {}
+                return { data: null, noReferrer: false };
+            }
+
+            function applyNoReferrerToEsriRasterLayer(layer, cachedMetadata) {
+                if (cachedMetadata) {
+                    layer.metadata = function(cb, ctx) {
+                        if (cb) cb.call(ctx, null, cachedMetadata);
+                        return this;
+                    };
+                }
+                const protoRender = L.esri && L.esri.RasterLayer && L.esri.RasterLayer.prototype._renderImage;
+                if (!protoRender) return;
+                layer._renderImage = function(imgUrl, bounds, contentType) {
+                    if (contentType || !imgUrl || imgUrl.startsWith('data:') || imgUrl.startsWith('blob:')) {
+                        return protoRender.call(this, imgUrl, bounds, contentType);
+                    }
+                    fetch(imgUrl, { referrerPolicy: 'no-referrer' })
+                        .then(res => {
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            return res.blob();
+                        })
+                        .then(blob => {
+                            if (!this._map) return;
+                            const blobUrl = URL.createObjectURL(blob);
+                            protoRender.call(this, blobUrl, bounds);
+                            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+                        })
+                        .catch(() => {
+                            if (this._map) this.fire('error');
+                        });
+                };
+            }
+
             if (isWMTS || isWMS) {
                 let finalWmsLayer = null;
+                let wmsVersion = requestedWmsVersion || '1.1.1';
                 let wmtsFormat = (wmtsOpts && wmtsOpts.format && wmtsOpts.format.startsWith('image/')) ? wmtsOpts.format : 'image/png';
                 let wmtsStyle = (wmtsOpts && wmtsOpts.style) ? wmtsOpts.style : 'default';
                 let wmtsTileMatrixSet = (wmtsOpts && wmtsOpts.tileMatrixSet) ? wmtsOpts.tileMatrixSet : 'default028mm';
@@ -1031,13 +1287,53 @@
                         xmlDoc = parser.parseFromString(sanitizedText, "text/xml");
                     } catch (e) {}
 
+                    let htmlDoc = null;
                     let layerNodes = (xmlDoc && !xmlDoc.querySelector('parsererror')) ? Array.from(xmlDoc.getElementsByTagName("Layer")) : [];
                     
                     // Fallback to text/html parser if XML parsing failed or found no layers
                     if (layerNodes.length === 0) {
                         try {
-                            const htmlDoc = parser.parseFromString(rawText, "text/html");
+                            htmlDoc = parser.parseFromString(rawText, "text/html");
                             layerNodes = Array.from(htmlDoc.querySelectorAll('*')).filter(el => (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'layer');
+                        } catch (e) {}
+                    }
+
+                    function pickPreferredImageFormat(formats) {
+                        if (!formats || formats.length === 0) return null;
+                        const rank = (fmt) => {
+                            if (fmt === 'image/png') return 0;
+                            if (fmt.startsWith('image/png')) return 1;
+                            if (fmt === 'image/jpeg' || fmt === 'image/jpg') return 2;
+                            if (fmt === 'image/webp') return 3;
+                            if (fmt === 'image/gif') return 9;
+                            return 5;
+                        };
+                        return formats.slice().sort((a, b) => rank(a) - rank(b))[0];
+                    }
+
+                    const capDoc = (xmlDoc && !xmlDoc.querySelector('parsererror')) ? xmlDoc : htmlDoc;
+                    let getMapFormat = null;
+                    if (!isWMTS) {
+                        const docVer = capDoc && capDoc.documentElement && capDoc.documentElement.getAttribute('version');
+                        if (docVer && /^\d+\.\d+/.test(docVer.trim())) {
+                            wmsVersion = docVer.trim();
+                        } else {
+                            const verMatch = rawText.match(/<(?:WMS_Capabilities|WMT_MS_Capabilities)\b[^>]*\bversion=["']([^"']+)["']/i);
+                            if (verMatch) wmsVersion = verMatch[1].trim();
+                        }
+                    }
+                    if (capDoc && !isWMTS) {
+                        try {
+                            const getMapNodes = Array.from(capDoc.getElementsByTagName('*')).filter(el =>
+                                (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'getmap'
+                            );
+                            if (getMapNodes.length > 0) {
+                                const gmFormats = Array.from(getMapNodes[0].getElementsByTagName('*'))
+                                    .filter(el => (el.localName || el.nodeName.split(':').pop()).toLowerCase() === 'format')
+                                    .map(el => el.textContent.trim().toLowerCase())
+                                    .filter(f => f.startsWith('image/') && !f.includes('svg'));
+                                getMapFormat = pickPreferredImageFormat(gmFormats);
+                            }
                         } catch (e) {}
                     }
 
@@ -1066,6 +1362,7 @@
                         const layerNode = layerNodes[i];
                         let nameNode = null;
                         let titleNode = null;
+                        let layerFormats = [];
                         let format = null;
                         let tileMatrixSets = [];
                         let style = null;
@@ -1085,10 +1382,13 @@
                                 if (node.parentNode === layerNode && !titleNode) {
                                     titleNode = node;
                                 }
-                            } else if (localName === 'format' && !format) {
-                                const fmtText = node.textContent.trim().toLowerCase();
-                                if (fmtText.startsWith('image/')) {
-                                    format = fmtText;
+                            } else if (localName === 'format') {
+                                // Only WMTS <Layer> elements declare tile formats directly; WMS <Layer> <Format> tags belong to LegendURL/MetadataURL/etc.
+                                if (isWMTS && node.parentNode === layerNode) {
+                                    const fmtText = node.textContent.trim().toLowerCase();
+                                    if (fmtText.startsWith('image/') && !fmtText.includes('svg') && !layerFormats.includes(fmtText)) {
+                                        layerFormats.push(fmtText);
+                                    }
                                 }
                             } else if (localName === 'style' && !style) {
                                 const idChild = Array.from(node.children).find(n => (n.localName || n.nodeName.split(':').pop()).toLowerCase() === 'identifier');
@@ -1160,10 +1460,13 @@
                                 layerMaxZoom = parseInt(zoomMatch[1], 10);
                             }
 
+                            const resolvedFormat = isWMTS
+                                ? (pickPreferredImageFormat(layerFormats) || format)
+                                : (getMapFormat || 'image/png');
                             availableLayers.push({
                                 name: nameNode.textContent.trim(),
                                 title: (titleNode && titleNode.textContent) ? titleNode.textContent.trim() : nameNode.textContent.trim(),
-                                format: (format && format.startsWith('image/')) ? format : 'image/png',
+                                format: (resolvedFormat && resolvedFormat.startsWith('image/')) ? resolvedFormat : 'image/png',
                                 style: style || 'default',
                                 tileMatrixSet: chosenTileMatrixSet,
                                 resourceUrlTemplate: resourceUrlTemplate,
@@ -1310,7 +1613,7 @@
                 if (!layerName) layerName = finalWmsLayer || `Custom Layer ${customLayerCount++}`;
 
                 // Check if already added using the resolved technical layer name
-                if (customBasemaps.some(b => b.url === url && b.wmsLayer === finalWmsLayer)) {
+                if (isDuplicateCustomBasemap(url, finalWmsLayer)) {
                     if (!silent) alert(`Layer "${layerName}" is already added.`);
                     return;
                 }
@@ -1367,10 +1670,12 @@
                     }
                     newLayer = L.tileLayer(wmtsUrl, wmtsTileOpts);
                 } else {
+                    const wmsFormat = (wmtsFormat && wmtsFormat.startsWith('image/')) ? wmtsFormat : 'image/png';
                     newLayer = L.tileLayer.wms(cleanUrl, {
                         layers: finalWmsLayer, 
-                        format: (wmtsFormat && wmtsFormat.startsWith('image/')) ? wmtsFormat : 'image/png',
-                        transparent: true,
+                        format: wmsFormat,
+                        version: wmsVersion,
+                        transparent: !/^image\/jpe?g$/i.test(wmsFormat),
                         attribution: 'Custom WMS',
                         maxZoom: 24
                     });
@@ -1390,6 +1695,15 @@
                     const urlParts = url.replace(/\/$/, '').split('/');
                     layerName = (urlParts.length > 1) ? urlParts[urlParts.length - 2].replace(/_/g, ' ') : `Custom Layer ${customLayerCount++}`;
                 }
+                let imageServerMeta = null;
+                let imageNeedsNoReferrer = false;
+                try {
+                    const imgJsonUrl = new URL(url);
+                    imgJsonUrl.searchParams.set('f', 'json');
+                    const fetched = await fetchArcGISJson(imgJsonUrl.toString());
+                    imageServerMeta = fetched.data;
+                    imageNeedsNoReferrer = fetched.noReferrer;
+                } catch (e) {}
                 newLayer = L.esri.imageMapLayer({
                     url: url,
                     opacity: 1,
@@ -1397,44 +1711,46 @@
                     f: 'image',
                     useCors: false
                 });
+                if (imageNeedsNoReferrer) {
+                    applyNoReferrerToEsriRasterLayer(newLayer, imageServerMeta);
+                }
             } else if (isMapServer) {
                 let isCached = false;
                 let mapServerData = null;
+                let needsNoReferrer = false;
 
                 const targetSubId = detectedMapServerSublayer || (wmsLayer && !isNaN(parseInt(wmsLayer.trim())) ? wmsLayer.trim() : null);
                 if (!explicitLayerName && !layerName && targetSubId) {
-                    try {
-                        const subJsonUrl = `${mapServerBaseUrl}/${targetSubId}?f=json`;
-                        const subRes = await fetch(subJsonUrl);
-                        if (subRes.ok) {
-                            const subData = await subRes.json();
+                    const subJsonUrl = `${mapServerBaseUrl}/${targetSubId}?f=json`;
+                    const subFetched = await fetchArcGISJson(subJsonUrl);
+                    if (subFetched.data && subFetched.data.name) {
+                        layerName = subFetched.data.name;
+                    }
+                    if (subFetched.noReferrer) needsNoReferrer = true;
+                    if (!subFetched.data && window.L && L.esri && L.esri.request) {
+                        try {
+                            const subData = await new Promise((res, rej) => {
+                                L.esri.request(`${mapServerBaseUrl}/${targetSubId}`, {}, (err, data) => {
+                                    if (err) rej(err);
+                                    else res(data);
+                                });
+                            });
                             if (subData && subData.name) {
                                 layerName = subData.name;
                             }
-                        }
-                    } catch (e) {
-                        if (window.L && L.esri && L.esri.request) {
-                            try {
-                                const subData = await new Promise((res, rej) => {
-                                    L.esri.request(`${mapServerBaseUrl}/${targetSubId}`, {}, (err, data) => {
-                                        if (err) rej(err);
-                                        else res(data);
-                                    });
-                                });
-                                if (subData && subData.name) {
-                                    layerName = subData.name;
-                                }
-                            } catch (err2) {}
-                        }
+                        } catch (err2) {}
                     }
                 }
 
                 try {
                     const jsonUrl = new URL(mapServerBaseUrl);
                     jsonUrl.searchParams.set('f', 'json');
-                    const response = await fetch(jsonUrl.toString());
-                    mapServerData = await response.json();
-                } catch (e) {
+                    const fetched = await fetchArcGISJson(jsonUrl.toString());
+                    mapServerData = fetched.data;
+                    if (fetched.noReferrer) needsNoReferrer = true;
+                } catch (e) {}
+
+                if (!mapServerData) {
                     if (window.L && L.esri && L.esri.request) {
                         try {
                             mapServerData = await new Promise((res, rej) => {
@@ -1468,12 +1784,61 @@
                         const urlParts = mapServerBaseUrl.replace(/\/$/, '').split('/');
                         layerName = (urlParts.length > 1) ? urlParts[urlParts.length - 2].replace(/_/g, ' ') : `Custom Layer ${customLayerCount++}`;
                     }
-                    newLayer = L.esri.tiledMapLayer({
-                        url: mapServerBaseUrl,
-                        opacity: 1,
-                        maxZoom: 24,
-                        useCors: false
-                    });
+                    const tileMaxLOD = (mapServerData && typeof mapServerData.maxLOD === 'number')
+                        ? mapServerData.maxLOD
+                        : ((mapServerData && mapServerData.tileInfo && mapServerData.tileInfo.lods && mapServerData.tileInfo.lods.length > 0)
+                            ? mapServerData.tileInfo.lods[mapServerData.tileInfo.lods.length - 1].level
+                            : undefined);
+
+                    if (needsNoReferrer) {
+                        const cleanTileBase = mapServerBaseUrl.replace(/\/$/, '');
+                        const errorTileUrl = (L.esri && L.esri.TiledMapLayer && L.esri.TiledMapLayer.prototype.options.errorTileUrl) || '';
+                        const tileOpts = {
+                            opacity: 1,
+                            maxZoom: 24,
+                            referrerPolicy: 'no-referrer',
+                            attribution: (mapServerData && mapServerData.copyrightText) || '',
+                            errorTileUrl: errorTileUrl
+                        };
+                        if (tileMaxLOD !== undefined) tileOpts.maxNativeZoom = tileMaxLOD;
+                        newLayer = L.tileLayer(`${cleanTileBase}/tile/{z}/{y}/{x}`, tileOpts);
+
+                        if (mapServerData && mapServerData.tileInfo && mapServerData.tileInfo.lods && L.esri && L.esri.TiledMapLayer && L.esri.TiledMapLayer.MercatorZoomLevels) {
+                            const lodMap = {};
+                            const mercatorZooms = L.esri.TiledMapLayer.MercatorZoomLevels;
+                            for (const lod of mapServerData.tileInfo.lods) {
+                                for (const zKey in mercatorZooms) {
+                                    if (Math.abs(lod.resolution / mercatorZooms[zKey] - 1) < 0.1) {
+                                        lodMap[zKey] = lod.level;
+                                        break;
+                                    }
+                                }
+                            }
+                            const hasRemappedLod = Object.keys(lodMap).some(k => String(lodMap[k]) !== String(k));
+                            if (hasRemappedLod) {
+                                newLayer.getTileUrl = function(coords) {
+                                    const z = this._getZoomForUrl();
+                                    const mappedZ = lodMap[z] !== undefined ? lodMap[z] : z;
+                                    return L.Util.template(this._url, L.extend({
+                                        r: L.Browser.retina ? '@2x' : '',
+                                        s: this._getSubdomain(coords),
+                                        x: coords.x,
+                                        y: coords.y,
+                                        z: mappedZ
+                                    }, this.options));
+                                };
+                            }
+                        }
+                    } else {
+                        const esriTileOpts = {
+                            url: mapServerBaseUrl,
+                            opacity: 1,
+                            maxZoom: 24,
+                            useCors: false
+                        };
+                        if (tileMaxLOD !== undefined) esriTileOpts.maxNativeZoom = tileMaxLOD;
+                        newLayer = L.esri.tiledMapLayer(esriTileOpts);
+                    }
                 } else {
                     let finalLayerIds = null;
                     if (mapServerData && mapServerData.layers && mapServerData.layers.length > 0) {
@@ -1529,7 +1894,7 @@
                         if (wmsLayer) layerName += ` (${wmsLayer})`;
                     }
 
-                    if (customBasemaps.some(b => b.url === mapServerBaseUrl && b.wmsLayer === wmsLayer)) {
+                    if (isDuplicateCustomBasemap(mapServerBaseUrl, wmsLayer)) {
                         if (!silent) alert(`Layer "${layerName}" is already added.`);
                         return;
                     }
@@ -1546,8 +1911,17 @@
                     }
                     
                     newLayer = L.esri.dynamicMapLayer(dynamicOpts);
+                    if (needsNoReferrer) {
+                        applyNoReferrerToEsriRasterLayer(newLayer, mapServerData);
+                    }
                 }
             } else {
+                if (!url.includes('{z}') && !url.includes('{x}') && !url.includes('{y}')) {
+                    if (!silent) {
+                        alert("This URL does not appear to be a valid tile template ({z}/{x}/{y}), WMS/WMTS, or ArcGIS REST service.");
+                    }
+                    return;
+                }
                 if (!layerName) {
                     layerName = `Custom Layer ${customLayerCount++}`;
                 }
@@ -1556,6 +1930,11 @@
                     maxNativeZoom: 21,
                     maxZoom: 24
                 });
+            }
+
+            if (isDuplicateCustomBasemap(url, wmsLayer)) {
+                if (!silent) alert(`Layer "${layerName}" is already added.`);
+                return;
             }
 
             if (newLayer && typeof newLayer.on === 'function') {
@@ -1633,8 +2012,10 @@
         window.changeBasemapOpacity = function(index, opacity) {
             const b = customBasemaps[index];
             if (!b || !b.layer) return;
+            const val = parseFloat(opacity);
+            b.opacity = isNaN(val) ? 1 : val;
             if (typeof b.layer.setOpacity === 'function') {
-                b.layer.setOpacity(parseFloat(opacity));
+                b.layer.setOpacity(b.opacity);
             }
         };
 
@@ -1918,7 +2299,16 @@
         
         // Resurrect Georeferenced Image from GeoJSON import
         window.resurrectGeoreferencedImage = async function(b) {
-            if (customBasemaps.some(existing => existing.id === b.id)) return;
+            const isDuplicateGeoref = customBasemaps.some(existing => {
+                if (existing.id === b.id) return true;
+                if (existing.url !== 'local_image' || !existing.layer || typeof existing.layer.getCorners !== 'function') return false;
+                const existingSrc = existing.layer._url || (existing.layer.getElement && existing.layer.getElement() ? existing.layer.getElement().src : '');
+                if (!existingSrc || !b.imageData || existingSrc !== b.imageData) return false;
+                const ec = existing.layer.getCorners();
+                return ec && b.corners && ec.length === b.corners.length &&
+                    ec.every((c, idx) => Math.abs(c.lat - b.corners[idx].lat) < 1e-7 && Math.abs(c.lng - b.corners[idx].lng) < 1e-7);
+            });
+            if (isDuplicateGeoref) return;
             
             if (!L.distortableImageOverlay) {
                 console.warn("Georeferencing plugin not loaded, cannot resurrect image.");
@@ -1944,7 +2334,7 @@
 
             const layerName = b.layerName || "Imported Image";
             const id = b.id || 'custom_layer_' + Date.now();
-            customBasemaps.push({ id, url: 'local_image', wmsLayer: '', layerName, layer: imgOverlay });
+            customBasemaps.push({ id, url: 'local_image', wmsLayer: '', layerName, layer: imgOverlay, opacity: (b.opacity !== undefined ? b.opacity : 1) });
             renderCustomBasemapsList();
         };
 
@@ -2138,6 +2528,415 @@
                 map.on('pm:globaldragmodetoggled', (e) => { if (e.enabled && draw3PR.active) draw3PR.disable(); });
                 map.on('pm:globalremovalmodetoggled', (e) => { if (e.enabled && draw3PR.active) draw3PR.disable(); });
                 map.on('pm:globalrotatemodetoggled', (e) => { if (e.enabled && draw3PR.active) draw3PR.disable(); });
+
+                // --- Custom Split & Merge Polyline Tools ---
+                function createCustomToolbarButton(title, svgMarkup) {
+                    const c = L.DomUtil.create('div', 'button-container', lastToolbar);
+                    const btn = L.DomUtil.create('a', 'leaflet-buttons-control-button', c);
+                    btn.href = '#';
+                    btn.title = title;
+                    btn.style.display = 'flex';
+                    btn.style.alignItems = 'center';
+                    btn.style.justifyContent = 'center';
+                    const ic = L.DomUtil.create('div', 'control-icon', btn);
+                    ic.style.backgroundImage = `url('data:image/svg+xml,${encodeURIComponent(svgMarkup)}')`;
+                    ic.style.width = '18px';
+                    ic.style.height = '18px';
+                    ic.style.margin = 'auto';
+                    L.DomEvent.disableClickPropagation(c);
+                    return btn;
+                }
+
+                function isEditablePolyline(layer) {
+                    return layer && (layer instanceof L.Polyline) && !(layer instanceof L.Polygon) &&
+                        (!layer.options || !layer.options.pmIgnore);
+                }
+
+                function groupContainsLayer(group, target) {
+                    if (!group || !target) return false;
+                    if (group.hasLayer && group.hasLayer(target)) return true;
+                    let found = false;
+                    if (group.eachLayer) {
+                        group.eachLayer(child => {
+                            if (child === target || (child.eachLayer && groupContainsLayer(child, target))) {
+                                found = true;
+                            }
+                        });
+                    }
+                    return found;
+                }
+
+                function findOwnerContainer(layer) {
+                    if (activeDrawnLayers.hasLayer(layer)) {
+                        return { type: 'active', container: activeDrawnLayers };
+                    }
+                    for (const shape of savedShapesData) {
+                        if (groupContainsLayer(shape.layerGroup, layer)) {
+                            return { type: 'saved', shape, container: shape.layerGroup };
+                        }
+                    }
+                    return null;
+                }
+
+                function getAllEditablePolylines() {
+                    const results = [];
+                    const seen = new Set();
+                    const addFrom = (group) => {
+                        getAllLeafLayers(group).forEach(l => {
+                            if (isEditablePolyline(l) && !seen.has(l)) {
+                                seen.add(l);
+                                results.push(l);
+                            }
+                        });
+                    };
+                    addFrom(activeDrawnLayers);
+                    savedShapesData.forEach(s => addFrom(s.layerGroup));
+                    return results;
+                }
+
+                function clonePolylineWithProps(pts, sourceLayer, nameOverride = null) {
+                    const color = (sourceLayer.options && sourceLayer.options.color) ||
+                        (sourceLayer.feature && sourceLayer.feature.properties && sourceLayer.feature.properties.stroke) ||
+                        '#ff2a00';
+                    const newLayer = L.polyline(pts, {
+                        color: color,
+                        weight: (sourceLayer.options && sourceLayer.options.weight) || 4,
+                        opacity: (sourceLayer.options && sourceLayer.options.opacity !== undefined) ? sourceLayer.options.opacity : 1,
+                        fillColor: color
+                    });
+                    const srcProps = (sourceLayer.feature && sourceLayer.feature.properties) ? JSON.parse(JSON.stringify(sourceLayer.feature.properties)) : {};
+                    srcProps.stroke = color;
+                    srcProps.fill = color;
+                    if (nameOverride !== null) {
+                        srcProps.name = nameOverride;
+                    }
+                    newLayer.feature = { type: 'Feature', properties: srcProps };
+                    return newLayer;
+                }
+
+                function replaceLayerInOwner(owner, oldLayer, newLayers) {
+                    if (!owner) return;
+                    removeLayerFromGroup(owner.container, oldLayer);
+                    if (map.hasLayer(oldLayer)) map.removeLayer(oldLayer);
+                    newLayers.forEach(nl => owner.container.addLayer(nl));
+                    if (owner.type === 'saved' && getAllLeafLayers(owner.shape.layerGroup).length === 0) {
+                        const idx = savedShapesData.indexOf(owner.shape);
+                        if (idx !== -1) savedShapesData.splice(idx, 1);
+                    }
+                }
+
+                function isClosedRing(pts) {
+                    if (!pts || pts.length < 3) return false;
+                    const first = pts[0];
+                    const last = pts[pts.length - 1];
+                    return Math.abs(first.lat - last.lat) < 1e-7 && Math.abs(first.lng - last.lng) < 1e-7;
+                }
+
+                function findClosestPolylineHit(clickLatLng, maxPx = 20) {
+                    const clickPt = map.latLngToContainerPoint(clickLatLng);
+                    let best = null;
+                    for (const layer of getAllEditablePolylines()) {
+                        const raw = layer.getLatLngs();
+                        const parts = (Array.isArray(raw[0])) ? raw : [raw];
+                        for (let partIdx = 0; partIdx < parts.length; partIdx++) {
+                            const pts = parts[partIdx];
+                            if (!pts || pts.length < 2) continue;
+                            for (let i = 0; i < pts.length - 1; i++) {
+                                const a = map.latLngToContainerPoint(pts[i]);
+                                const b = map.latLngToContainerPoint(pts[i + 1]);
+                                const abx = b.x - a.x;
+                                const aby = b.y - a.y;
+                                const abLenSq = abx * abx + aby * aby;
+                                let t = abLenSq === 0 ? 0 : ((clickPt.x - a.x) * abx + (clickPt.y - a.y) * aby) / abLenSq;
+                                t = Math.max(0, Math.min(1, t));
+                                const proj = L.point(a.x + t * abx, a.y + t * aby);
+                                const dist = clickPt.distanceTo(proj);
+                                if (dist <= maxPx && (!best || dist < best.dist)) {
+                                    // Snap cleanly to vertex if within 8px of segment endpoint
+                                    let snappedT = t;
+                                    if (clickPt.distanceTo(a) <= 8) snappedT = 0;
+                                    else if (clickPt.distanceTo(b) <= 8) snappedT = 1;
+                                    const splitLatLng = snappedT === 0 ? L.latLng(pts[i].lat, pts[i].lng)
+                                        : (snappedT === 1 ? L.latLng(pts[i + 1].lat, pts[i + 1].lng)
+                                            : map.containerPointToLatLng(proj));
+                                    best = { layer, isMulti: Array.isArray(raw[0]), parts, partIdx, pts, segIdx: i, t: snappedT, splitLatLng, dist };
+                                }
+                            }
+                        }
+                    }
+                    return best;
+                }
+
+                function disableAllDrawEditModes() {
+                    try { map.pm.disableDraw(); } catch (e) {}
+                    try { if (map.pm.globalEditModeEnabled()) map.pm.disableGlobalEditMode(); } catch (e) {}
+                    try { if (map.pm.globalDragModeEnabled()) map.pm.disableGlobalDragMode(); } catch (e) {}
+                    try { if (map.pm.globalRemovalModeEnabled()) map.pm.disableGlobalRemovalMode(); } catch (e) {}
+                    try { if (map.pm.globalRotateModeEnabled()) map.pm.disableGlobalRotateMode(); } catch (e) {}
+                }
+
+                const splitSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B5B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>';
+                const mergeSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B5B5B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h5l3 6-3 6H4"/><path d="M20 12h-8"/><circle cx="12" cy="12" r="2.2" fill="#5B5B5B"/></svg>';
+
+                const splitBtn = createCustomToolbarButton('Split Polyline', splitSvg);
+                const mergeBtn = createCustomToolbarButton('Merge Polylines', mergeSvg);
+
+                const splitTool = {
+                    active: false,
+                    hintMarker: null,
+                    btnNode: splitBtn,
+
+                    enable: function() {
+                        if (draw3PR.active) draw3PR.disable();
+                        if (mergeTool.active) mergeTool.disable();
+                        disableAllDrawEditModes();
+                        this.active = true;
+                        map._container.style.cursor = 'crosshair';
+                        map.on('mousemove', this.onMouseMove, this);
+                        map.on('click', this.onClick, this);
+                        this.btnNode.parentNode.classList.add('active');
+                        this.btnNode.style.backgroundColor = '#e0e0e0';
+                    },
+
+                    disable: function() {
+                        this.active = false;
+                        if (this.hintMarker) { map.removeLayer(this.hintMarker); this.hintMarker = null; }
+                        map._container.style.cursor = '';
+                        map.off('mousemove', this.onMouseMove, this);
+                        map.off('click', this.onClick, this);
+                        this.btnNode.parentNode.classList.remove('active');
+                        this.btnNode.style.backgroundColor = '';
+                    },
+
+                    onMouseMove: function(e) {
+                        const hit = findClosestPolylineHit(e.latlng, 20);
+                        if (hit) {
+                            if (!this.hintMarker) {
+                                this.hintMarker = L.circleMarker(hit.splitLatLng, {
+                                    radius: 6, color: '#ff2a00', fillColor: '#ffffff', fillOpacity: 1, weight: 2.5,
+                                    interactive: false, pmIgnore: true
+                                }).addTo(map);
+                            } else {
+                                this.hintMarker.setLatLng(hit.splitLatLng);
+                            }
+                        } else if (this.hintMarker) {
+                            map.removeLayer(this.hintMarker);
+                            this.hintMarker = null;
+                        }
+                    },
+
+                    onClick: function(e) {
+                        const hit = findClosestPolylineHit(e.latlng, 20);
+                        if (!hit) return;
+
+                        const { layer, isMulti, parts, partIdx, pts, segIdx, t, splitLatLng } = hit;
+                        const owner = findOwnerContainer(layer);
+                        if (!owner) return;
+
+                        const origName = (layer.feature && layer.feature.properties && layer.feature.properties.name) ? layer.feature.properties.name : null;
+
+                        if (isClosedRing(pts) && !layer._openedLoop) {
+                            // First split on a closed loop opens the loop at the clicked point
+                            const openRing = [splitLatLng];
+                            for (let i = segIdx + 1; i < pts.length - 1; i++) {
+                                openRing.push(L.latLng(pts[i].lat, pts[i].lng));
+                            }
+                            for (let i = 0; i <= segIdx; i++) {
+                                openRing.push(L.latLng(pts[i].lat, pts[i].lng));
+                            }
+                            if (t !== 0) {
+                                openRing.push(L.latLng(splitLatLng.lat, splitLatLng.lng));
+                            }
+                            const opened = clonePolylineWithProps(
+                                isMulti ? parts.map((p, idx) => idx === partIdx ? openRing : p) : openRing,
+                                layer,
+                                origName
+                            );
+                            opened._openedLoop = true;
+                            replaceLayerInOwner(owner, layer, [opened]);
+                        } else {
+                            // Ignore outer endpoints on an open line
+                            if ((segIdx === 0 && t === 0) || (segIdx === pts.length - 2 && t === 1)) {
+                                return;
+                            }
+                            const part1 = pts.slice(0, segIdx + 1).map(p => L.latLng(p.lat, p.lng));
+                            if (t > 0) part1.push(L.latLng(splitLatLng.lat, splitLatLng.lng));
+
+                            const part2 = [];
+                            if (t < 1) part2.push(L.latLng(splitLatLng.lat, splitLatLng.lng));
+                            pts.slice(segIdx + 1).forEach(p => part2.push(L.latLng(p.lat, p.lng)));
+
+                            if (part1.length < 2 || part2.length < 2) return;
+
+                            const name1 = origName ? `${origName} (Part 1)` : null;
+                            const name2 = origName ? `${origName} (Part 2)` : null;
+                            const poly1 = clonePolylineWithProps(part1, layer, name1);
+                            const poly2 = clonePolylineWithProps(part2, layer, name2);
+
+                            if (isMulti) {
+                                const newLayers = [poly1, poly2];
+                                parts.forEach((p, idx) => {
+                                    if (idx !== partIdx) newLayers.push(clonePolylineWithProps(p, layer, origName));
+                                });
+                                replaceLayerInOwner(owner, layer, newLayers);
+                            } else {
+                                replaceLayerInOwner(owner, layer, [poly1, poly2]);
+                            }
+                        }
+
+                        if (this.hintMarker) { map.removeLayer(this.hintMarker); this.hintMarker = null; }
+                        renderSavedList();
+                    }
+                };
+
+                const mergeTool = {
+                    active: false,
+                    firstLayer: null,
+                    highlight: null,
+                    btnNode: mergeBtn,
+
+                    enable: function() {
+                        if (draw3PR.active) draw3PR.disable();
+                        if (splitTool.active) splitTool.disable();
+                        disableAllDrawEditModes();
+                        this.active = true;
+                        this.clearSelection();
+                        map._container.style.cursor = 'pointer';
+                        map.on('click', this.onClick, this);
+                        this.btnNode.parentNode.classList.add('active');
+                        this.btnNode.style.backgroundColor = '#e0e0e0';
+                    },
+
+                    disable: function() {
+                        this.active = false;
+                        this.clearSelection();
+                        map._container.style.cursor = '';
+                        map.off('click', this.onClick, this);
+                        this.btnNode.parentNode.classList.remove('active');
+                        this.btnNode.style.backgroundColor = '';
+                    },
+
+                    clearSelection: function() {
+                        this.firstLayer = null;
+                        if (this.highlight) { map.removeLayer(this.highlight); this.highlight = null; }
+                    },
+
+                    onClick: function(e) {
+                        const hit = findClosestPolylineHit(e.latlng, 20);
+                        if (!hit) {
+                            this.clearSelection();
+                            return;
+                        }
+
+                        const clicked = hit.layer;
+                        const raw = clicked.getLatLngs();
+                        if (Array.isArray(raw[0])) {
+                            if (raw.length !== 1) {
+                                alert("Cannot merge a multi-part polyline directly. Split or separate its parts first.");
+                                return;
+                            }
+                        }
+                        const pts = Array.isArray(raw[0]) ? raw[0] : raw;
+
+                        if (!this.firstLayer) {
+                            if (isClosedRing(pts) && !clicked._openedLoop) {
+                                alert("Cannot merge a closed loop. Split it first to open it.");
+                                return;
+                            }
+                            this.firstLayer = clicked;
+                            this.highlight = L.polyline(pts, {
+                                color: '#00d4ff', weight: 8, opacity: 0.75, interactive: false, pmIgnore: true
+                            }).addTo(map);
+                            return;
+                        }
+
+                        if (clicked === this.firstLayer) {
+                            this.clearSelection();
+                            return;
+                        }
+
+                        if (isClosedRing(pts) && !clicked._openedLoop) {
+                            alert("Cannot merge a closed loop. Split it first to open it.");
+                            return;
+                        }
+
+                        const rawA = this.firstLayer.getLatLngs();
+                        const ptsA = (Array.isArray(rawA[0]) ? rawA[0] : rawA).map(p => L.latLng(p.lat, p.lng));
+                        const ptsB = pts.map(p => L.latLng(p.lat, p.lng));
+
+                        const aStart = map.project(ptsA[0]);
+                        const aEnd = map.project(ptsA[ptsA.length - 1]);
+                        const bStart = map.project(ptsB[0]);
+                        const bEnd = map.project(ptsB[ptsB.length - 1]);
+
+                        const candidates = [
+                            { dist: aEnd.distanceTo(bStart), revA: false, revB: false },
+                            { dist: aEnd.distanceTo(bEnd), revA: false, revB: true },
+                            { dist: aStart.distanceTo(bStart), revA: true, revB: false },
+                            { dist: aStart.distanceTo(bEnd), revA: true, revB: true }
+                        ];
+                        candidates.sort((c1, c2) => c1.dist - c2.dist);
+                        const best = candidates[0];
+
+                        const seqA = best.revA ? ptsA.slice().reverse() : ptsA;
+                        const seqB = best.revB ? ptsB.slice().reverse() : ptsB;
+                        const joinA = seqA[seqA.length - 1];
+                        const joinB = seqB[0];
+                        const sameJunction = Math.abs(joinA.lat - joinB.lat) < 1e-7 && Math.abs(joinA.lng - joinB.lng) < 1e-7;
+                        const mergedPts = seqA.concat(sameJunction ? seqB.slice(1) : seqB);
+
+                        const ownerA = findOwnerContainer(this.firstLayer);
+                        const ownerB = findOwnerContainer(clicked);
+                        if (!ownerA || !ownerB) {
+                            this.clearSelection();
+                            return;
+                        }
+
+                        const mergedPoly = clonePolylineWithProps(mergedPts, this.firstLayer);
+                        const oldA = this.firstLayer;
+                        this.clearSelection();
+
+                        replaceLayerInOwner(ownerB, clicked, []);
+                        replaceLayerInOwner(ownerA, oldA, [mergedPoly]);
+                        renderSavedList();
+                    }
+                };
+
+                L.DomEvent.on(splitBtn, 'click', (e) => {
+                    L.DomEvent.preventDefault(e);
+                    if (splitTool.active) splitTool.disable();
+                    else splitTool.enable();
+                });
+
+                L.DomEvent.on(mergeBtn, 'click', (e) => {
+                    L.DomEvent.preventDefault(e);
+                    if (mergeTool.active) mergeTool.disable();
+                    else mergeTool.enable();
+                });
+
+                // Wire mutual exclusion with draw3PR, Geoman modes, and Escape
+                const origDraw3PREnable = draw3PR.enable;
+                draw3PR.enable = function() {
+                    if (splitTool.active) splitTool.disable();
+                    if (mergeTool.active) mergeTool.disable();
+                    origDraw3PREnable.call(this);
+                };
+
+                const disableCustomTools = () => {
+                    if (splitTool.active) splitTool.disable();
+                    if (mergeTool.active) mergeTool.disable();
+                };
+                map.on('pm:drawstart', disableCustomTools);
+                map.on('pm:globaleditmodetoggled', (e) => { if (e.enabled) disableCustomTools(); });
+                map.on('pm:globaldragmodetoggled', (e) => { if (e.enabled) disableCustomTools(); });
+                map.on('pm:globalremovalmodetoggled', (e) => { if (e.enabled) disableCustomTools(); });
+                map.on('pm:globalrotatemodetoggled', (e) => { if (e.enabled) disableCustomTools(); });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        if (draw3PR.active) draw3PR.disable();
+                        disableCustomTools();
+                    }
+                });
             }
         }, 500);
 
@@ -3280,9 +4079,9 @@
                 
                 let subLayersHtml = '';
                 const layers = getAllLeafLayers(shape.layerGroup);
-                if (layers.length > 1) {
+                if (layers.length >= 1) {
                     subLayersHtml = '<div style="margin: 8px 0; padding: 5px 10px; background: #eee; border-radius: 4px;">';
-                    subLayersHtml += '<div style="font-size: 12px; color: #555; margin-bottom: 5px; font-weight: bold;">Grouped Features</div>';
+                    subLayersHtml += `<div style="font-size: 12px; color: #555; margin-bottom: 5px; font-weight: bold;">${layers.length > 1 ? 'Grouped Features' : 'Features'}</div>`;
                     layers.forEach((layer, index) => {
                         let layerName = (layer.feature && layer.feature.properties && layer.feature.properties.name) ? layer.feature.properties.name : null;
                         if (!layerName) {
@@ -3290,13 +4089,14 @@
                             layerName = `${layerType} ${index + 1}`;
                         }
                         const subId = layer._leaflet_id;
-                        const layerColor = (layer.options && layer.options.color) ? layer.options.color : shape.color;
+                        const layerColor = (layer.options && layer.options.color) ? layer.options.color : (shape.color || '#ff2a00');
                         subLayersHtml += `
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 13px;">
                                 <span style="flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 5px;">${layerName}</span>
                                 <button onclick="renameSubLayer(${shape.id}, ${subId})" style="background:none; border:none; cursor:pointer; padding:0 3px; font-size: 14px;" title="Rename part">✏️</button>
+                                <button onclick="duplicateSubLayer(${shape.id}, ${subId})" style="background:none; border:none; cursor:pointer; padding:0 3px; font-size: 14px;" title="Duplicate part">📋</button>
                                 <button onclick="deleteSubLayer(${shape.id}, ${subId})" style="background:none; border:none; cursor:pointer; padding:0 3px; font-size: 14px;" title="Delete part">🗑️</button>
-                                <input type="color" value="${layerColor}" onchange="changeSubLayerColor(${shape.id}, ${subId}, this.value)" style="margin-left: 5px;" title="Change part color">
+                                <input type="color" value="${layerColor}" oninput="changeSubLayerColor(${shape.id}, ${subId}, this.value)" onchange="changeSubLayerColor(${shape.id}, ${subId}, this.value)" style="margin-left: 5px;" title="Change part color">
                             </div>
                         `;
                     });
@@ -3306,7 +4106,6 @@
                 itemDiv.innerHTML = `
                     <div class="saved-item-header">
                         <span>${shape.name}</span>
-                        <input type="color" class="color-picker" value="${shape.color}" oninput="changeShapeColor(${shape.id}, this.value)" onchange="changeShapeColor(${shape.id}, this.value)" title="Change shape color">
                     </div>
                     ${subLayersHtml}
                     <div class="shape-controls">
@@ -3344,25 +4143,6 @@
         }
 
         // Color Picker Logic
-        window.changeShapeColor = function(id, newColor) {
-            const shape = savedShapesData.find(s => s.id === id);
-            if (!shape || !shape.layerGroup) return;
-
-            shape.color = newColor;
-            
-            // Apply new style to all layers in the group
-            getAllLeafLayers(shape.layerGroup).forEach(function(layer) {
-                if (typeof layer.setStyle === 'function') {
-                    layer.setStyle({ color: newColor, fillColor: newColor });
-                    if (!layer.feature) layer.feature = { type: "Feature", properties: {} };
-                    if (!layer.feature.properties) layer.feature.properties = {};
-                    layer.feature.properties.stroke = newColor;
-                    layer.feature.properties.fill = newColor;
-                }
-            });
-            // Optional: Re-render to update sub-layer color pickers, but might disrupt focus.
-        };
-
         window.changeSubLayerColor = function(shapeId, layerId, newColor) {
             const shape = savedShapesData.find(s => s.id === shapeId);
             if (!shape || !shape.layerGroup) return;
@@ -3393,6 +4173,49 @@
                 layer.feature.properties.name = newName.trim();
                 renderSavedList();
             }
+        };
+
+        window.duplicateSubLayer = function(shapeId, layerId) {
+            const shape = savedShapesData.find(s => s.id === shapeId);
+            if (!shape || !shape.layerGroup) return;
+
+            const layer = getAllLeafLayers(shape.layerGroup).find(l => l._leaflet_id === layerId);
+            if (!layer) return;
+
+            const color = (layer.options && layer.options.color) ||
+                (layer.feature && layer.feature.properties && layer.feature.properties.stroke) ||
+                shape.color || '#ff2a00';
+            const styleOpts = {
+                color: color,
+                weight: (layer.options && layer.options.weight) || 4,
+                opacity: (layer.options && layer.options.opacity !== undefined) ? layer.options.opacity : 1,
+                fillColor: (layer.options && layer.options.fillColor) || color
+            };
+            if (layer.options && layer.options.fillOpacity !== undefined) {
+                styleOpts.fillOpacity = layer.options.fillOpacity;
+            }
+
+            let dupLayer = null;
+            if (layer instanceof L.Polygon) {
+                dupLayer = L.polygon(cloneLatLngs(layer.getLatLngs()), styleOpts);
+            } else if (layer instanceof L.Polyline) {
+                dupLayer = L.polyline(cloneLatLngs(layer.getLatLngs()), styleOpts);
+            } else if (typeof layer.getLatLng === 'function') {
+                const ll = layer.getLatLng();
+                dupLayer = L.marker(L.latLng(ll.lat, ll.lng));
+            }
+            if (!dupLayer) return;
+
+            const srcProps = (layer.feature && layer.feature.properties) ? JSON.parse(JSON.stringify(layer.feature.properties)) : {};
+            srcProps.stroke = color;
+            srcProps.fill = color;
+            if (srcProps.name && srcProps.name.trim() !== '') {
+                srcProps.name = srcProps.name.trim() + ' (Copy)';
+            }
+            dupLayer.feature = { type: 'Feature', properties: srcProps };
+
+            shape.layerGroup.addLayer(dupLayer);
+            renderSavedList();
         };
 
         window.deleteSubLayer = function(shapeId, layerId) {
@@ -3587,7 +4410,6 @@
                 features: features,
                 properties: {
                     name: shape.name,
-                    color: shape.color,
                     basemaps: serializedBasemaps
                 }
             };
